@@ -1,9 +1,71 @@
-with open('grp_f.obj') as f:
-	data = f.readlines()
+with open('grp.obj') as f:
+	fileIn = f.readlines()
 
 # get rid of \n chars
-data = [x.strip() for x in data]
+fileIn = [x.strip() for x in fileIn]
 
+# look for objects
+objects = []
+for i, line in enumerate(fileIn):
+	if len(line) > 2 and line[0] == "#" and line[2] == "o":
+		objects.append( [i, line] )
+
+# finds ranges of objects in file
+objectsRange = []
+for i, obj in enumerate(objects):
+	if i != len(objects)-1:
+		objectsRange.append( [obj[0]-1, objects[i+1][0]-2 ] )
+	else:
+		objectsRange.append( [obj[0]-1, len(fileIn)] )
+
+# split obj file based on previously computed ranges
+objectsData = []
+for r in objectsRange:
+	objectsData.append( fileIn[r[0]:r[1]+1] )
+
+# count number of vertices per object, add to objects list
+for i, obj in enumerate(objectsData):
+	verts = 0
+	for line in obj:
+		if len(line) > 2 and line[0] == "v" and line[1] == " ":
+			verts += 1
+	objects[i].append(verts)
+
+
+# generate objectsFaces list
+objectsFaces = list(objectsData)
+
+for i, obj in enumerate(objectsFaces):
+	objectsFaces[i] = [x for x in obj if (len(x) > 2 and x[0] == "f")]
+
+'''
+for i, obj in enumerate(objectsFaces):
+	if i != 0:
+		objectsFaces[i] = [ x.split(" ") for x in obj]
+		for j, face in enumerate(objectsFaces[i]):
+			for k, val in enumerate(objectsFaces[i][j]):
+				if val != "f":
+					val = val.split("/")
+					val = [str( int(x) - objects[i-1][2] ) for x in val]
+					val = "/".join(val)
+					objectsFaces[i][j][k] = val
+			objectsFaces[i][j] = " ".join(objectsFaces[i][j])
+'''
+
+print objects
+# accumulate vertex numbers
+#print objectsFaces[1]
+
+
+
+
+
+
+
+
+
+
+'''
 verts = []
 grps = []
 
@@ -53,3 +115,4 @@ print grpsData[0]
 #test = open('test.txt', 'w')
 #for line in grpsData[0]:
 #	test.write("%s\n" % line)
+'''

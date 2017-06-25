@@ -1,3 +1,9 @@
+# objects list should look like this now
+# ["starting line in OBJ file starting with an object", "name of an object", "number of vertices", "cumulative number of vertices (sum of previous)", "group name"]
+# objectsData contains all lines from original OBJ file belonging to an object
+# objectsFacces contains all the faces for an object, later they are offset by number of vertices from previous objects (based on order in which they are written in OBJ file)
+
+# read obj file
 with open('grp.obj') as f:
 	fileIn = f.readlines()
 
@@ -30,7 +36,12 @@ for i, obj in enumerate(objectsData):
 		if len(line) > 2 and line[0] == "v" and line[1] == " ":
 			verts += 1
 	objects[i].append(verts)
+	objects[i].append(verts)
 
+# accumulate vertex numbers (to be used to offset faces indices)
+for i, obj in enumerate(objects):
+	if i != 0:
+		obj[3] += objects[i-1][3]
 
 # generate objectsFaces list
 objectsFaces = list(objectsData)
@@ -38,7 +49,8 @@ objectsFaces = list(objectsData)
 for i, obj in enumerate(objectsFaces):
 	objectsFaces[i] = [x for x in obj if (len(x) > 2 and x[0] == "f")]
 
-'''
+
+# offset faces indecis
 for i, obj in enumerate(objectsFaces):
 	if i != 0:
 		objectsFaces[i] = [ x.split(" ") for x in obj]
@@ -46,73 +58,26 @@ for i, obj in enumerate(objectsFaces):
 			for k, val in enumerate(objectsFaces[i][j]):
 				if val != "f":
 					val = val.split("/")
-					val = [str( int(x) - objects[i-1][2] ) for x in val]
+					val = [str( int(x) - objects[i-1][3] ) for x in val]
 					val = "/".join(val)
 					objectsFaces[i][j][k] = val
 			objectsFaces[i][j] = " ".join(objectsFaces[i][j])
-'''
 
-print objects
-# accumulate vertex numbers
-#print objectsFaces[1]
-
-
-
-
-
-
-
-
-
-
-'''
-verts = []
-grps = []
-
-# look for vertices and groups
-for i, line in enumerate(data):
-	if line[0] == "v":
-		verts.append(line)
-
-	if line[0] == "g" and len(line) > 2:
-		grps.append([i, line.split(" ")[1]])
-
-# detect start and end line of groups
-for i, grp in enumerate(grps):
-	if i != len(grps)-1:
-		grp[0] = [grp[0]+1, grps[i+1][0]-1]
-	else:
-		grp[0] = [grp[0]+1, len(data)]
-
-# get all lines from data based on groups
-grpsVerts = [ " ".join( data[grp[0][0]:grp[0][1]+1] ) for grp in grps]
-grpsFaces = [ data[grp[0][0]:grp[0][1]+1] for grp in grps]
-
-# remove "f" characters, convert to list of lists
-for i, grp in enumerate(grpsVerts):
-	grp = grp.split(" ")
-	grp = [x for x in grp if x != "f"]
-	grpsVerts[i] = grp
-
-# find unique vertices
-grpsVerts = [ list(set(grp)) for grp in grpsVerts]
-
-# build all needed data for each group
-grpsData = [[],[]]
-for i, grp in enumerate(grpsVerts):
-	for vert in grp:
-		grpsData[i].append(data[int(vert)+5])
-	grpsData[i].append("g " + grps[i][1])
-	grpsData[i] += grpsFaces[i]
+# replace old faces with new offset in objectsData
+for i, obj in enumerate(objectsData):
+	firstline = -1
+	for j, line in enumerate(obj):
+		if firstline == -1 and len(line) > 2 and line[0] == "f":
+			firstline = j
+		if firstline != -1 and len(line) > 2 and line[0] == "f":
+			objectsData[i][j] = objectsFaces[i][j - firstline]
+		# add group name to objects list
+		if len(line) > 2 and line[0] == "g":
+			objects[i].append(line[2:])
 
 
-print grpsData[0]
-
-##
-## faces numbers - needs to search for old vertices in new data and get their new indices
-##
-
-#test = open('test.txt', 'w')
-#for line in grpsData[0]:
-#	test.write("%s\n" % line)
-'''
+# write to new OBJs
+for i, obj in enumerate(objectsData):
+	out = open(objects[i][4] + ".obj", 'w')
+	for line in objectsData[i]:
+		out.write("%s\n" % line)

@@ -29,4 +29,4 @@ def crackAllObjs(path):
 	for path in objPaths:
 		objCrack.crack(path)
 
-#crackAllObjs('/home/juraj/Programovanie/megaH_test')
+crackAllObjs('/home/jtomori/coding/megascans_lib_obj/Debris_Plant_Stalk_qhxmOD')

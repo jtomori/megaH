@@ -1,4 +1,4 @@
-import glob, os
+import glob, os, math
 import objCrack
 
 # flattens down list of lists
@@ -26,7 +26,7 @@ def crackAllObjs(path):
 	from Queue import Queue
 	from threading import Thread
 
-	threads = multi.cpu_count() - 3
+	threads = multi.cpu_count() - 0
 
 	folders = getFoldersPaths(path)
 	objPaths = [ [os.path.join(folder, file) for file in getFilesByMask(folder, "*.obj")] for folder in folders]
@@ -55,4 +55,36 @@ def crackAllObjs(path):
 	#for path in objPaths:
 	#	objCrack.crack(path)
 
-crackAllObjs('/home/juraj/Programovanie/megaH_test')
+# cracks all OBJ files inside specified folder
+# https://stackoverflow.com/questions/7207309/python-how-can-i-run-python-functions-in-parallel
+def crackAllObjsSecond(path):
+	import multiprocessing as multi
+
+	threads = multi.cpu_count() - 2
+
+	folders = getFoldersPaths(path)
+	objPaths = [ [os.path.join(folder, file) for file in getFilesByMask(folder, "*.obj")] for folder in folders]
+	objPaths = flatten(objPaths)
+
+	# split objPaths into evenly sized parts based on muber of threads
+	chunk = int(len(objPaths) / threads)+1
+	objPathsParts = [ objPaths[i:i+chunk] for i in xrange(0, len(objPaths), chunk) ]
+
+	# a function to be executed in parallel
+	def crackMulti(paths):
+		for path in paths:
+			objCrack.crack(path)
+
+	# spawn processes
+	proc = []
+	for x in xrange(threads):
+		p = multi.Process(target=crackMulti(objPathsParts[x]))
+		p.start()
+		proc.append(p)
+	for p in proc:
+		p.join()
+
+	#for path in objPaths:
+	#	objCrack.crack(path)
+
+crackAllObjsSecond('/home/juraj/Programovanie/megaH_test')

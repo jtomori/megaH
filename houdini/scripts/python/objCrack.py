@@ -46,27 +46,6 @@ def crack(path):
 		if i != 0:
 			obj[3] += objects[i-1][3]
 
-	'''
-	# generate objectsFaces list
-	objectsFaces = list(objectsData)
-
-	for i, obj in enumerate(objectsFaces):
-		objectsFaces[i] = [x for x in obj if (len(x) > 2 and x[0] == "f")]
-
-	# offset faces indices
-	for i, obj in enumerate(objectsFaces):
-		if i != 0:
-			objectsFaces[i] = [ x.split(" ") for x in obj]
-			for j, face in enumerate(objectsFaces[i]):
-				for k, val in enumerate(objectsFaces[i][j]):
-					if val != "f":
-						val = val.split("/")
-						val = [str( int(x) - objects[i-1][3] ) for x in val]
-						val = "/".join(val)
-						objectsFaces[i][j][k] = val
-				objectsFaces[i][j] = " ".join(objectsFaces[i][j])
-	'''
-
 	# offset faces indices
 	for i, obj in enumerate(objectsData):
 		if i != 0:
@@ -82,58 +61,8 @@ def crack(path):
 			if len(line) > 2 and line[0] == "g":
 				objects[i].append(line[2:])
 
-
-			#objectsFaces[i] = [ x.split(" ") for x in obj]
-			#for j, face in enumerate(objectsFaces[i]):
-			#	for k, val in enumerate(objectsFaces[i][j]):
-			#		if val != "f":
-			#			val = val.split("/")
-			#			val = [str( int(x) - objects[i-1][3] ) for x in val]
-			#			val = "/".join(val)
-			#			objectsFaces[i][j][k] = val
-			#	objectsFaces[i][j] = " ".join(objectsFaces[i][j])
-
-	#print objectsData[2]
-
-	'''
-	# debugging faces in source file vs faces recognized
-
-	# prints lines from source OBJ file containing nubmer of faces
-	facesFromSrc = []
-	for obj in objectsData:
-		for line in obj:
-			if len(line) > 4 and line[0] == "#" and line.split(" ")[2] == "faces":
-				facesFromSrc.append( int(line.split(" ")[1]) )
-	#print facesFromSrc
-
-	# prints number of detected faces inside objectsFaces list
-	facesParsed = [ len(x) for x in objectsFaces]
-	#print facesParsed
-
-	for i, val in enumerate(facesFromSrc):
-		if val != facesParsed[i]:
-			print "------------mismatch------------"
-		else:
-			print "match"
-	'''
-
-	'''
-	# replace old faces with new offset in objectsData
-	for i, obj in enumerate(objectsData):
-		firstline = -1
-		for j, line in enumerate(obj):
-			if firstline == -1 and len(line) > 2 and line[0] == "f":
-				firstline = j
-			#if firstline != -1 and len(line) > 2 and line[0] == "f":
-				#objectsData[i][j] = objectsFaces[i][j - firstline]
-			# add group name to objects list
-			if len(line) > 2 and line[0] == "g":
-				objects[i].append(line[2:])
-	'''
-
 	#figure out folder
 	folder, file = os.path.split(path)
-
 
 	# write to new OBJs
 	for i, obj in enumerate(objectsData):
@@ -141,5 +70,4 @@ def crack(path):
 		out = open(outPath, 'w')
 		for line in objectsData[i]:
 			out.write("%s\n" % line)
-
-#crack("/home/jtomori/coding/megaH/houdini/scripts/python/grp.obj")
+			

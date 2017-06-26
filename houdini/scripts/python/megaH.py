@@ -22,11 +22,37 @@ def getFilesByMask(path, mask):
 
 # cracks all OBJ files inside specified folder
 def crackAllObjs(path):
+	import multiprocessing as multi
+	from Queue import Queue
+	from threading import Thread
+
+	threads = multi.cpu_count() - 3
+
 	folders = getFoldersPaths(path)
 	objPaths = [ [os.path.join(folder, file) for file in getFilesByMask(folder, "*.obj")] for folder in folders]
 	objPaths = flatten(objPaths)
 
-	for path in objPaths:
-		objCrack.crack(path)
+	# define a function to be multi-threaded
+	def crackMulti(q):
+		while True:
+			objCrack.crack(q.get())
+			q.task_done()
 
-crackAllObjs('/home/jtomori/coding/megascans_lib_obj/Debris_Plant_Stalk_qhxmOD')
+	# copy all paths into a qeue
+	objPathsQ = Queue(maxsize=0)
+	for x in xrange(len(objPaths)):
+		objPathsQ.put(objPaths[x])
+
+	# spawn threads with convert function
+	for i in range(threads):
+		worker = Thread(target=crackMulti, args=(objPathsQ,))
+		worker.setDaemon(True)
+		worker.start()
+
+	# wait until all threads are done
+	objPathsQ.join()
+
+	#for path in objPaths:
+	#	objCrack.crack(path)
+
+crackAllObjs('/home/juraj/Programovanie/megaH_test')

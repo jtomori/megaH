@@ -59,7 +59,7 @@ def crack(path):
 		# add group name to objects list
 		for j, line in enumerate(obj):
 			if len(line) > 2 and line[0] == "g":
-				objects[i].append(line[2:])
+				objects[i].append( line[2:].split(" ")[-1] )
 
 	#figure out folder
 	folder, file = os.path.split(path)
@@ -70,4 +70,3 @@ def crack(path):
 		out = open(outPath, 'w')
 		for line in objectsData[i]:
 			out.write("%s\n" % line)
-			

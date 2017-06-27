@@ -60,7 +60,7 @@ def crackAllObjs(path):
 def crackAllObjsSecond(path):
 	import multiprocessing as multi
 
-	threads = multi.cpu_count() - 2
+	threads = multi.cpu_count() - 1
 
 	folders = getFoldersPaths(path)
 	objPaths = [ [os.path.join(folder, file) for file in getFilesByMask(folder, "*.obj")] for folder in folders]
@@ -87,4 +87,5 @@ def crackAllObjsSecond(path):
 	#for path in objPaths:
 	#	objCrack.crack(path)
 
-crackAllObjsSecond('/home/juraj/Programovanie/megaH_test')
+#crackAllObjs('/home/jtomori/coding/megascans_lib_obj_1')
+crackAllObjsSecond('/home/jtomori/coding/megascans_lib_obj_2')

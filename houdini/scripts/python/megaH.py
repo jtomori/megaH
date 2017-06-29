@@ -1,4 +1,4 @@
-import glob, os, math
+import glob, os, time
 import objCrack
 
 # flattens down list of lists
@@ -26,7 +26,7 @@ def crackAllObjs(path):
 	from Queue import Queue
 	from threading import Thread
 
-	threads = multi.cpu_count() - 0
+	threads = multi.cpu_count() - 2
 
 	folders = getFoldersPaths(path)
 	objPaths = [ [os.path.join(folder, file) for file in getFilesByMask(folder, "*.obj")] for folder in folders]
@@ -52,23 +52,22 @@ def crackAllObjs(path):
 	# wait until all threads are done
 	objPathsQ.join()
 
-	#for path in objPaths:
-	#	objCrack.crack(path)
-
 # cracks all OBJ files inside specified folder
 # https://stackoverflow.com/questions/7207309/python-how-can-i-run-python-functions-in-parallel
 def crackAllObjsSecond(path):
 	import multiprocessing as multi
+	import math
 
-	threads = multi.cpu_count() - 1
+	threads = multi.cpu_count() - 2
 
 	folders = getFoldersPaths(path)
 	objPaths = [ [os.path.join(folder, file) for file in getFilesByMask(folder, "*.obj")] for folder in folders]
 	objPaths = flatten(objPaths)
 
-	# split objPaths into evenly sized parts based on muber of threads
-	chunk = int(len(objPaths) / threads)+1
-	objPathsParts = [ objPaths[i:i+chunk] for i in xrange(0, len(objPaths), chunk) ]
+	# split into even chunks
+	def chunkify(lst,n):
+		return [ lst[i::n] for i in xrange(n) ]
+	objPathsParts = chunkify(objPaths, threads)
 
 	# a function to be executed in parallel
 	def crackMulti(paths):
@@ -77,6 +76,7 @@ def crackAllObjsSecond(path):
 
 	# spawn processes
 	proc = []
+
 	for x in xrange(threads):
 		p = multi.Process(target=crackMulti(objPathsParts[x]))
 		p.start()
@@ -84,8 +84,119 @@ def crackAllObjsSecond(path):
 	for p in proc:
 		p.join()
 
-	#for path in objPaths:
-	#	objCrack.crack(path)
+def crackAllObjsSingle(path):
+	folders = getFoldersPaths(path)
+	objPaths = [ [os.path.join(folder, file) for file in getFilesByMask(folder, "*.obj")] for folder in folders]
+	objPaths = flatten(objPaths)
 
-#crackAllObjs('/home/jtomori/coding/megascans_lib_obj_1')
-crackAllObjsSecond('/home/jtomori/coding/megascans_lib_obj_2')
+	for path in objPaths:
+		objCrack.crack(path)
+
+num_threads = 0
+thread_started = False
+def crackAllObjsThird(path):
+	import multiprocessing as multi
+	import thread
+
+	lock = thread.allocate_lock()
+
+	threads = multi.cpu_count() - 0
+
+	folders = getFoldersPaths(path)
+	objPaths = [ [os.path.join(folder, file) for file in getFilesByMask(folder, "*.obj")] for folder in folders]
+	objPaths = flatten(objPaths)
+
+	# split into even chunks
+	def chunkify(lst,n):
+		return [ lst[i::n] for i in xrange(n) ]
+	objPathsParts = chunkify(objPaths, threads)
+
+	# a function to be executed in parallel
+	def crackMulti(paths):
+		global num_threads, thread_started
+		lock.acquire()
+		num_threads += 1
+		thread_started = True
+		lock.release()
+
+		for path in paths:
+			objCrack.crack(path)
+
+		lock.acquire()
+		num_threads -= 1
+		lock.release()
+
+	for x in xrange(threads):
+		thread.start_new_thread(crackMulti, (objPathsParts[x],))
+
+	while not thread_started:
+		pass
+	while num_threads > 0:
+		pass
+
+def crackAllObjsFourth(path):
+	from threading import Thread
+	import multiprocessing as multi
+
+	threads = multi.cpu_count() - 0
+
+	folders = getFoldersPaths(path)
+	objPaths = [ [os.path.join(folder, file) for file in getFilesByMask(folder, "*.obj")] for folder in folders]
+	objPaths = flatten(objPaths)
+
+	# split into even chunks
+	def chunkify(lst,n):
+		return [ lst[i::n] for i in xrange(n) ]
+	objPathsParts = chunkify(objPaths, threads)
+
+	# a function to be executed in parallel
+	def crackMulti(paths):
+		for path in paths:
+			objCrack.crack(path)
+			#print path
+
+	threadsList = []
+
+	for x in xrange(threads):
+		t = Thread(target=crackMulti, args=(objPathsParts[x],))
+		threadsList.append(t)
+		t.start()
+
+	for x in threadsList: 
+		x.join()
+
+
+#'''
+start = time.time()
+crackAllObjsSingle('/home/jtomori/coding/test_1')
+end = time.time()
+print end-start
+#'''
+
+#'''
+start = time.time()
+crackAllObjs('/home/jtomori/coding/test_2')
+end = time.time()
+print end-start
+#'''
+
+#'''
+start = time.time()
+crackAllObjsSecond('/home/jtomori/coding/test_3')
+end = time.time()
+print end-start
+#'''
+
+#'''
+start = time.time()
+crackAllObjsThird('/home/jtomori/coding/test_4')
+end = time.time()
+print end-start
+#'''
+
+#'''
+start = time.time()
+crackAllObjsFourth('/home/jtomori/coding/test_5')
+end = time.time()
+print end-start
+#'''

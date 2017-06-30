@@ -70,3 +70,8 @@ def crack(path):
 		out = open(outPath, 'w')
 		for line in objectsData[i]:
 			out.write("%s\n" % line)
+
+# calling crack() on a list of paths
+def crackMulti(paths):
+	for path in paths:
+		crack(path)

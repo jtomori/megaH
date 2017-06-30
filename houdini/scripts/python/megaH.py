@@ -48,7 +48,7 @@ objCrack.crackMulti(%s)
 """ % ( str(objPathsParts[index]) )
 		os.system(command)
 
-	# go to current folder, because of later module importing
+	# go to the folder of this file, because of later module importing, this is because getFilesByMask() function is changing current director
 	os.chdir(os.path.split(__file__)[0])
 
 	# spawn all threads

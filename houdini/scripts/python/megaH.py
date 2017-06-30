@@ -1,5 +1,6 @@
 import glob, os, time
 import objCrack
+import hou
 
 # flattens down list of lists
 def flatten(A):
@@ -24,6 +25,7 @@ def getFilesByMask(path, mask):
 def crackAllObjs(path):
 	import multiprocessing as multi
 	from threading import Thread
+	import inspect
 
 	# list containing Thread objects
 	threadsList = []
@@ -49,7 +51,7 @@ objCrack.crackMulti(%s)
 		os.system(command)
 
 	# go to the folder of this file, because of later module importing, this is because getFilesByMask() function is changing current director
-	os.chdir(os.path.split(__file__)[0])
+	os.chdir( os.path.split( os.path.abspath(inspect.stack()[0][1]) )[0] )
 
 	# spawn all threads
 	for x in xrange(threads):
@@ -60,3 +62,10 @@ objCrack.crackMulti(%s)
 	# wait for all threads to end
 	for x in threadsList: 
 		x.join()
+
+# a function to be called from Houdini, making use of Houdini dialogs
+# now does not seem to work, because after update to h16, it only select files, not folders
+def crackAllObjsHou():
+	megaLib = hou.getenv("MEGA_LIB")
+	path = hou.ui.selectFile(start_directory=megaLib, title="Select a folder containing assets to process", collapse_sequences=False, pattern="*.obj", chooser_mode=hou.fileChooserMode.Read)
+	crackAllObjs(path)

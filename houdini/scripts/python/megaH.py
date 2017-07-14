@@ -64,8 +64,10 @@ objCrack.crackMulti(%s)
 		x.join()
 
 # a function to be called from Houdini, making use of Houdini dialogs
-# now does not seem to work, because after update to h16, it only select files, not folders
+# selectFile() does not seem to work on folders anymore, readInput() is usued instead
 def crackAllObjsHou():
 	megaLib = hou.getenv("MEGA_LIB")
-	path = hou.ui.selectFile(start_directory=megaLib, title="Select a folder containing assets to process", collapse_sequences=False, pattern="*.obj", chooser_mode=hou.fileChooserMode.Read)
-	crackAllObjs(path)
+	#path = hou.ui.selectFile(start_directory=megaLib, title="Select a folder containing assets to process", collapse_sequences=False, pattern="*.obj", chooser_mode=hou.fileChooserMode.Read)
+	choice, path = hou.ui.readInput("Enter folder path of Megascans library to convert, can take up couple of seconds.", buttons=('Convert','Cancel'), close_choice=1)
+	if choice == 0:
+		crackAllObjs(path)

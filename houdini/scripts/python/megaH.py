@@ -66,8 +66,8 @@ objCrack.crackMulti(%s)
 # a function to be called from Houdini, making use of Houdini dialogs
 # selectFile() does not seem to work on folders anymore, readInput() is usued instead
 def crackAllObjsHou():
-	megaLib = hou.getenv("MEGA_LIB")
-	#path = hou.ui.selectFile(start_directory=megaLib, title="Select a folder containing assets to process", collapse_sequences=False, pattern="*.obj", chooser_mode=hou.fileChooserMode.Read)
+	#libPath = hou.getenv("MEGA_LIB")
+	#path = hou.ui.selectFile(start_directory=libPath, title="Select a folder containing assets to process", collapse_sequences=False, pattern="*.obj", chooser_mode=hou.fileChooserMode.Read)
 	choice, path = hou.ui.readInput("Enter folder path of Megascans library to convert, this operation can take some time.", buttons=('Convert','Cancel'), close_choice=1)
 	path = os.path.normpath(path)
 	if choice == 0:
@@ -77,7 +77,7 @@ def crackAllObjsHou():
 		hou.ui.displayMessage("OBJs cracking is done\nelapsed time: %0.2f seconds" % (end-start), title="Done")
 
 # generates and writes a dictionary with hierarchy of all megascan packs, assets their LODs
-class buildHierarchy():
+class BuildHierarchy():
 
 		# init function, creates needed variables
 		def __init__(self, path):
@@ -137,3 +137,12 @@ class buildHierarchy():
 
 			with open(self.libHierarchyJson, 'w') as out:
 				json.dump(hierarchy, out, indent = 1, sort_keys=True, ensure_ascii=False)
+
+# indexes all the assets specified in MEGA_LIB env variable into a dictionary storad as a JSON file, it creates/overwrites MEGA_LIB/index.json
+def buildHierarchyHou():
+	libPath = hou.getenv("MEGA_LIB")
+	start = time.time()
+	hierarchy = BuildHierarchy(libPath)
+	hierarchy.build()
+	end = time.time()
+	hou.ui.displayMessage("Assets indexing done in: %0.3f seconds" % (end-start), title="Done")

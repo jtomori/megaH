@@ -5,8 +5,12 @@
  Note, that two definitions of the same element are not allowed in
  a single file. -->
 
-  <toolshelf name="megascans" label="Megascans tools">
-    <memberTool name="crack"/>
-    <memberTool name="index"/>
-  </toolshelf>
+  <tool name="index" label="Index assets" icon="PLASMA_App">
+    <script scriptType="python"><![CDATA[
+
+import megaH
+megaH.buildHierarchyHou()
+
+]]></script>
+  </tool>
 </shelfDocument>

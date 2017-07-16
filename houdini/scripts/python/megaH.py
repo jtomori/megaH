@@ -82,7 +82,7 @@ class BuildHierarchy():
 		# init function, creates needed variables
 		def __init__(self, path):
 			self.libPath = os.path.normpath(path)
-			self.extMask = "*.objc"
+			self.extMask = "*.OBJ"
 			self.libHierarchyJson = os.path.join(self.libPath, "index.json")
 
 		# returns True if asset and LOD are reversed
@@ -134,9 +134,89 @@ class BuildHierarchy():
 
 # indexes all the assets specified in MEGA_LIB env variable into a dictionary storad as a JSON file, it creates/overwrites MEGA_LIB/index.json
 def buildHierarchyHou():
-	libPath = hou.getenv("MEGA_LIB")
+	libPath = os.path.normpath(hou.getenv("MEGA_LIB"))
 	start = time.time()
 	hierarchy = BuildHierarchy(libPath)
 	hierarchy.build()
 	end = time.time()
 	hou.ui.displayMessage("Assets indexing done in: %0.3f seconds" % (end-start), title="Done")
+
+# a class covering functionality of jt_megaLoad digital asset
+class MegaLoad():
+
+	# init function, creates needed variables
+	def __init__(self):
+		self.libPath = os.path.normpath(hou.getenv("MEGA_LIB"))
+		self.libHierarchyJson = os.path.join(self.libPath, "index.json")
+		with open(self.libHierarchyJson) as data:
+			self.assetsIndex = json.load(data)
+
+	# finds packs based on idexed file, outputs houdini menu-style list
+	def packsList(self):
+		packs = [pack.encode("ascii") for pack in self.assetsIndex]
+		packs = [[packs[x], packs[x].replace("_", " ")] for x in xrange(len(packs))]
+		packs = flatten(packs)
+		return packs
+
+	# finds assets in pack based on idexed file, outputs houdini menu-style list
+	def assetsList(self):
+		index = hou.pwd().parm("pack").eval()
+		packs = hou.pwd().parm("pack").menuItems()
+		pack = packs[index]
+
+		assets = self.assetsIndex[pack].keys()
+		assets = [x.encode("ascii") for x in assets]
+		assets = [ [x,x] for x in assets]
+		assets = flatten(assets)
+		return assets
+
+	# finds LODs in asset in pack based on idexed file, outputs houdini menu-style list
+	def lodsList(self):
+		packsIndex = hou.pwd().parm("pack").eval()
+		packs = hou.pwd().parm("pack").menuItems()
+		pack = packs[packsIndex]
+
+		assetsIndex = hou.pwd().parm("asset").eval()
+		assets = hou.pwd().parm("asset").menuItems()
+		asset = assets[assetsIndex]
+
+		lods = self.assetsIndex[pack][asset].keys()
+		lods = [x.encode("ascii") for x in lods]
+		paths = [self.assetsIndex[pack][asset][lod].encode("ascii") for lod in lods]
+		#lodsMenu = [ [ self.libPath + paths[n] , lods[n] ] for n in xrange(len(lods))]
+		lodsMenu = [ [ os.path.join(self.libPath, paths[n]) , lods[n] ] for n in xrange(len(lods))]
+		lodsMenu = flatten(lodsMenu)
+		return lodsMenu
+
+	# checks checkbox in asset, if set, it will rename current node by asset name and LOD, it should be bound to callback of a load button (which might by hidden)
+	def autoRename(self, node):
+		currentName = node.name()
+		enabled = node.evalParm("rename")
+
+		packs = node.parm("pack").menuItems()
+		pack = node.parm("pack").eval()
+		assets = node.parm("asset").menuLabels()
+		asset = node.parm("asset").eval()
+		lods = node.parm("lod").menuLabels()
+		lod = node.parm("lod").eval()
+
+		newName = packs[pack] + "_" + assets[asset] + "_" + lods[lod] + "_0"
+
+		if enabled and (currentName != newName):
+			node.setName(newName, unique_name=True)
+
+	# searches houdini project file for shaders which are prepared to work with megascans assets, if found, it modifies parameter values
+	def getShaders(self, node):
+		restInstances = hou.nodeType(hou.shopNodeTypeCategory(), 'jt_megaShader').instances()
+		lod0Instances = hou.nodeType(hou.shopNodeTypeCategory(), 'jt_megaShader_lod0').instances()
+
+		rest = "--- shader not found ---"
+		lod0 = "--- shader not found ---"
+
+		if len(restInstances) != 0:
+			rest = restInstances[0].path()
+		if len(lod0Instances) != 0:
+			lod0 = lod0Instances[0].path()
+
+		node.parm("rest").set(rest)
+		node.parm("lod0").set(lod0)

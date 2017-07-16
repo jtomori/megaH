@@ -66,7 +66,7 @@ def crack(path):
 
 	# write to new OBJs
 	for i, obj in enumerate(objectsData):
-		outPath = os.path.join(folder, objects[i][4] + ".objc")
+		outPath = os.path.join(folder, objects[i][4] + ".OBJ")
 		out = open(outPath, 'w')
 		for line in objectsData[i]:
 			out.write("%s\n" % line)

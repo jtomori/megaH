@@ -87,7 +87,6 @@ class BuildHierarchy():
 
 		# returns True if asset and LOD are reversed
 		def checkReverse(self, packs, pack):
-			#assetName = getFilesByMask(self.libPath + packs[pack] + "/", self.extMask)[0]
 			assetName = getFilesByMask( os.path.join(self.libPath, packs[pack]), self.extMask )[0]
 			assetName = assetName.split(".")[0].split("_")[-1]
 			if assetName.isdigit():
@@ -98,7 +97,6 @@ class BuildHierarchy():
 
 		# returns list of assets in a pack
 		def getAssets(self, packs, pack):
-			#assets = getFilesByMask(self.libPath + packs[pack] + "/", self.extMask)
 			assets = getFilesByMask( os.path.join(self.libPath, packs[pack]), self.extMask )
 			if self.checkReverse(packs,  pack):
 				assets = [ asset.split(".")[0].split("_")[-2] for asset in assets ]
@@ -109,13 +107,10 @@ class BuildHierarchy():
 
 		# returns dictionary of LODs per asset in pack as keys and full paths as values
 		def getLods(self, packs, pack, assets, asset):
-			#lods = getFilesByMask(self.libPath + packs[pack] + "/", "*" + assets[asset] + "*" + self.extMask)
 			lods = getFilesByMask( os.path.join(self.libPath, packs[pack]), "*" + assets[asset] + "*" + self.extMask)
 			if self.checkReverse(packs,  pack):
-				#lods = { lod.split(".")[0].split("_")[-1] : packs[pack] + "/" + lod for lod in lods }
 				lods = { lod.split(".")[0].split("_")[-1] : os.path.join(packs[pack], lod) for lod in lods }
 			else:
-				#lods = { lod.split(".")[0].split("_")[-2] : packs[pack] + "/" + lod for lod in lods }
 				lods = { lod.split(".")[0].split("_")[-2] : os.path.join(packs[pack], lod) for lod in lods }
 			return lods
 
@@ -123,7 +118,6 @@ class BuildHierarchy():
 		def build(self):
 			packs = getFoldersPaths(self.libPath)
 			del packs[0] # removes folder itself as it is not expected to contain any assets geometry, it should contain only assets folders and json
-			#packs = [x.split("/")[-1] for x in packs]
 			packs = [x.split( os.path.sep )[-1] for x in packs]
 
 			hierarchy = {}

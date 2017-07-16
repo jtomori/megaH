@@ -14,6 +14,11 @@ HOUDINI_PATH = "&;/home/myUser/megaH/houdini"
 MEGA_LIB = "/home/myUser/megascans_library"
 ```
 
+##### 3. Set *MEGA_SHADER* environment variable to the operator name of a shader (OTL Operator Type, which can be seen by right-clicking on the shader asset and selecting *Type Properties...*) you want to use for your assets. (this variable is optional, it is used for automatic shader assignment)
+```
+MEGA_SHADER = "jt_megaShader"
+```
+
 
 Usage
 -----
@@ -27,5 +32,8 @@ Usage
     - *rename* option enables automatic renaming of the node to the name of a selected asset
     - *display* changes viewport preview complexity, does not effect rendered result
     - *textured* will show albedo texture in the viewport
-    - *shaders*
-      - *Find Shaders* button will automatically scan current Houdini project for the shaders associated with the megascans assets (specified in *MEGA_SHADER_\** environment variable)
+    - *shader*
+      - *Find Shader* button will automatically scan current Houdini project for the shader associated with the megascans assets (specified in *MEGA_SHADER* environment variable)
+        - this asset is setting up *packed disk primitive* to the correct path on the disk and it also sets various attributes required for the shading pointing to the textures included in Megascans library
+          - those string attributes include: *disp, norm, albedo, rough, spec, lod* for displacement, normal map, diffuse albedo, specular roughness, specular intensity/tint and lod information, which can be used in shader logic (it will contain one of the following values: *High, 0, 1, 2, 3, 4, 5*)
+          - note that in case of *High* LOD selected, normal map will use *NormalBump* texture.

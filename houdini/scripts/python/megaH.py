@@ -148,8 +148,7 @@ class MegaLoad():
 	def __init__(self):
 		self.libPath = os.path.normpath(hou.getenv("MEGA_LIB"))
 		self.libHierarchyJson = os.path.join(self.libPath, "index.json")
-		self.shaderAll = hou.getenv("MEGA_SHADER_ALL")
-		self.shaderLod0 = hou.getenv("MEGA_SHADER_LOD0")
+		self.shader = hou.getenv("MEGA_SHADER")
 
 		with open(self.libHierarchyJson) as data:
 			self.assetsIndex = json.load(data)
@@ -186,7 +185,6 @@ class MegaLoad():
 		lods = self.assetsIndex[pack][asset].keys()
 		lods = [x.encode("ascii") for x in lods]
 		paths = [self.assetsIndex[pack][asset][lod].encode("ascii") for lod in lods]
-		#lodsMenu = [ [ self.libPath + paths[n] , lods[n] ] for n in xrange(len(lods))]
 		lodsMenu = [ [ os.path.join(self.libPath, paths[n]) , lods[n] ] for n in xrange(len(lods))]
 		lodsMenu = flatten(lodsMenu)
 		return lodsMenu
@@ -210,21 +208,15 @@ class MegaLoad():
 
 	# searches houdini project file for shaders which are prepared to work with megascans assets, if found, it modifies parameter values
 	def getShaders(self, node):
-		restInstances = []
-		lod0Instances = []
+		shaderInstances = []
 		try:
-			restInstances = hou.nodeType(hou.shopNodeTypeCategory(), self.shaderAll).instances()
-			lod0Instances = hou.nodeType(hou.shopNodeTypeCategory(), self.shaderLod0).instances()
+			shaderInstances = hou.nodeType(hou.shopNodeTypeCategory(), self.shader).instances()
 		except:
 			pass
 
-		rest = "--- shader not found ---"
-		lod0 = "--- shader not found ---"
+		shader = "--- shader not found ---"
 
-		if len(restInstances) != 0:
-			rest = restInstances[0].path()
-		if len(lod0Instances) != 0:
-			lod0 = lod0Instances[0].path()
+		if len(shaderInstances) != 0:
+			shader = shaderInstances[0].path()
 
-		node.parm("rest").set(rest)
-		node.parm("lod0").set(lod0)
+		node.parm("shader").set(shader)

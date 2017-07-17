@@ -31,7 +31,7 @@ Usage
   - **Mega load** is assets loader, which provides simple UI for choosing desired asset.
     - *rename* option enables automatic renaming of the node to the name of a selected asset
     - *display* changes viewport preview complexity, does not effect rendered result
-    - *textured* will show albedo texture in the viewport
+    - *textured* will show textures in the viewport (sometimes it is required to dive into the asset in order to update textures in the viewport)
     - *shader*
       - *Find Shader* button will automatically scan current Houdini project for the shader associated with the megascans assets (specified in *MEGA_SHADER* environment variable)
         - this asset is setting up *packed disk primitive* to the correct path on the disk and it also sets various attributes required for the shading pointing to the textures included in Megascans library

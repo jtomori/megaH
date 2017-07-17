@@ -57,9 +57,17 @@ def crack(path):
 					line =  "f " + " ".join( [ "/".join(x) for x in line] )
 					objectsData[i][j] = line
 		# add group name to objects list
+		# group name will be used as an output obj file, therefore I have to fix inconsistency in Megascans naming conventions...
 		for j, line in enumerate(obj):
 			if len(line) > 2 and line[0] == "g":
-				objects[i].append( line[2:].split(" ")[-1] )
+				line = line[2:].split(" ")[-1]
+				line = line.split("_")[-2:]
+				line = "_".join(line)
+
+				pathTmp = os.path.split(path)[-1].split("_")[:-1]
+				pathTmp = "_".join(pathTmp)
+				line = pathTmp + "_" + line
+				objects[i].append( line )
 
 	#figure out folder
 	folder, file = os.path.split(path)

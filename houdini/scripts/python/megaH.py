@@ -68,7 +68,7 @@ objCrack.crackMulti(%s)
 def crackAllObjsHou():
 	#libPath = hou.getenv("MEGA_LIB")
 	#path = hou.ui.selectFile(start_directory=libPath, title="Select a folder containing assets to process", collapse_sequences=False, pattern="*.obj", chooser_mode=hou.fileChooserMode.Read)
-	choice, path = hou.ui.readInput("Enter folder path of Megascans library to convert, this operation can take some time.", buttons=('Convert','Cancel'), close_choice=1)
+	choice, path = hou.ui.readInput("Enter folder path of Megascans library to convert, this operation can take some time.", buttons=('Convert','Cancel'), close_choice=1, initial_contents=hou.getenv("MEGA_LIB"))
 	path = os.path.normpath(path)
 	if choice == 0:
 		start = time.time()

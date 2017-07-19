@@ -43,19 +43,31 @@ def crackAllObjs(path):
 
 	# a function to be called in parallel, which is calling separate processes
 	def callProcess(pathsParts, index):
-		command = """python -c "
-import objCrack
-objCrack.crackMulti(%s)
-"
-""" % ( str(objPathsParts[index]) )
-		os.system(command)
+#		command = """python -c "
+#import objCrack
+#objCrack.crackMulti(%s)
+#"
+#""" % (str(objPathsParts[index]) )
+# windows does not like mult line strings to be called from os.system()
+
+		command = """python -c "import objCrack; objCrack.crackMulti(%s);" """ % (str(objPathsParts[index]) )
+
+		if os.name == "nt":
+			import subprocess
+			CREATE_NO_WINDOW = 0x08000000
+			subprocess.call(command, creationflags=CREATE_NO_WINDOW)
+		else:
+			os.system(command)
 
 	# go to the folder of this file, because of later module importing, this is because getFilesByMask() function is changing current director
-	os.chdir( os.path.split( os.path.abspath(inspect.stack()[0][1]) )[0] )
+	curFolder = os.path.split( os.path.normpath(inspect.stack()[0][1]) )[0]
+	#os.chdir( os.path.split( os.path.abspath(inspect.stack()[0][1]) )[0] )
+	#upper caused problems on Windows, was showing some strange relative path
+	os.chdir(curFolder)
 
 	# spawn all threads
 	for x in xrange(threads):
-		t = Thread(target=callProcess, args=(objPathsParts,x))
+		t = Thread(target=callProcess, args=(objPathsParts, x))
 		threadsList.append(t)
 		t.start()
 

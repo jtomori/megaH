@@ -1,4 +1,4 @@
-import glob, os, time, json
+import glob, os, time, json, fnmatch
 import objCrack
 import hou
 
@@ -18,7 +18,10 @@ def getFoldersPaths(path):
 # return list of files matching mask inside specified folder
 def getFilesByMask(path, mask):
 	os.chdir(path)
-	lods = [file for file in glob.glob(mask)]
+	#lods = [file for file in glob.glob(mask)]
+	#windows did case-insensitive glob filtering
+	
+	lods = [file for file in glob.glob("*") if fnmatch.fnmatchcase(file, mask)]
 	return lods
 
 # multithreaded cracking of all OBJs in specified folder, function is calling multiple python processes, which are calling objCrack.crackMulti() function, but each process has different arguments

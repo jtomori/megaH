@@ -222,7 +222,7 @@ class MegaLoad():
 	def getShaders(self, node):
 		shaderInstances = []
 		try:
-			shaderInstances = hou.nodeType(hou.shopNodeTypeCategory(), self.shader).instances()
+			shaderInstances = hou.nodeType(hou.vopNodeTypeCategory(), self.shader).instances()
 		except:
 			pass
 

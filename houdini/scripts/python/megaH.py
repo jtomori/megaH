@@ -18,9 +18,6 @@ def getFoldersPaths(path):
 # return list of files matching mask inside specified folder
 def getFilesByMask(path, mask):
 	os.chdir(path)
-	#lods = [file for file in glob.glob(mask)]
-	#windows did case-insensitive glob filtering
-	
 	lods = [file for file in glob.glob("*") if fnmatch.fnmatchcase(file, mask)]
 	return lods
 
@@ -46,13 +43,6 @@ def crackAllObjs(path):
 
 	# a function to be called in parallel, which is calling separate processes
 	def callProcess(pathsParts, index):
-#		command = """python -c "
-#import objCrack
-#objCrack.crackMulti(%s)
-#"
-#""" % (str(objPathsParts[index]) )
-# windows does not like mult line strings to be called from os.system()
-
 		command = """python -c "import objCrack; objCrack.crackMulti(%s);" """ % (str(objPathsParts[index]) )
 
 		if os.name == "nt":
@@ -64,8 +54,6 @@ def crackAllObjs(path):
 
 	# go to the folder of this file, because of later module importing, this is because getFilesByMask() function is changing current director
 	curFolder = os.path.split( os.path.normpath(inspect.stack()[0][1]) )[0]
-	#os.chdir( os.path.split( os.path.abspath(inspect.stack()[0][1]) )[0] )
-	#upper caused problems on Windows, was showing some strange relative path
 	os.chdir(curFolder)
 
 	# spawn all threads

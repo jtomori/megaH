@@ -23,7 +23,7 @@ MEGA_SHADER = "jt_megaShader"
 Usage
 -----
 
-- Sample library for testing can be found [here](https://goo.gl/Y2D9BA).
+- Sample library for testing can be found [here](https://goo.gl/Y2D9BA) (without textures).
 - After your environment variables are set up, in Houdini you can start using **Megascans tools** shelf.
   - **Crack OBJs** does required pre-process step which splits original OBJ asset sets into individual assets. This tool will recursively scan specified path for OBJs. It is required to run this step only once. If a new asset folder is added, then it is required to run this tool on the folder. Although this tool outputs assets in the OBJ geometry format, output file extension is *.OBJ* (uppercase) in order to easily distinguish it from original uncracked OBJ file.
   - **Index assets** scans through folders specified in *MEGA_LIB* path and looks for cracked OBJs, then it organizes it based into subassets and respective LODs and stores as a dictionary in a JSON file located in *MEGA_LIB/index.json*, it will overwrite *index.json* if it already exists

@@ -21,6 +21,14 @@ def getFilesByMask(path, mask):
 	lods = [file for file in glob.glob("*") if fnmatch.fnmatchcase(file, mask)]
 	return lods
 
+def getFilesRecursivelyByMask(path, mask):
+	matches = []
+	for root, dirnames, filenames in os.walk(path):
+		for filename in fnmatch.filter(filenames, mask):
+			matches.append(os.path.join(root, filename))
+	
+	return matches
+
 # multithreaded cracking of all OBJs in specified folder, function is calling multiple python processes, which are calling objCrack.crackMulti() function, but each process has different arguments
 def crackAllObjs(path):
 	import multiprocessing as multi
@@ -80,7 +88,7 @@ def crackAllObjsHou():
 		hou.ui.displayMessage("OBJs cracking is done\nelapsed time: %0.2f seconds" % (end-start), title="Done")
 
 # generates and writes a dictionary with hierarchy of all megascan packs, assets their LODs
-class BuildHierarchy():
+class BuildHierarchy(object):
 
 		# init function, creates needed variables
 		def __init__(self, path):
@@ -145,7 +153,7 @@ def buildHierarchyHou():
 	hou.ui.displayMessage("Assets indexing done in: %0.3f seconds" % (end-start), title="Done")
 
 # a class covering functionality of jt_megaLoad digital asset
-class MegaLoad():
+class MegaLoad(object):
 
 	# init function, creates needed variables
 	def __init__(self):
@@ -223,3 +231,64 @@ class MegaLoad():
 			shader = shaderInstances[0].path()
 
 		node.parm("shader").set(shader)
+
+class ProcessAssets(object):
+	@staticmethod
+	def convertInFilePath(node):
+		parent_node = node.parent()
+
+		try:
+			in_path = parent_node.parm("file").unexpandedString()
+		except AttributeError:
+			raise AttributeError("'file' parameter not found")
+
+		out_path = in_path
+
+		if in_path.endswith(".obj"):
+			out_path = in_path.replace(".obj", ".bgeo.sc")
+		elif in_path.endswith(".fbx"):
+			out_path = in_path.replace(".fbx", ".bgeo.sc")
+			
+		out_path = hou.expandString(out_path)
+
+		return out_path
+
+	@staticmethod
+	def generateProcessAssetsNodes(node):
+		try:
+			root_path = node.parm("folder").eval()
+			ext = node.parm("ext").eval()
+		except AttributeError:
+			raise AttributeError("Specified node has no 'folder' parameter")
+		
+		sopnet = node.glob("sopnet")[0]
+		ropnet = node.glob("ropnet")[0]
+		rop_merge = ropnet.glob("merge_render_all")[0]
+		
+		files = getFilesRecursivelyByMask(root_path, ext)
+		process_nodes = []
+		fetch_nodes = []
+
+		for file in files:
+			node = sopnet.createNode("mega_process_asset")
+			node.parm("file").set(file)
+
+			fetch = ropnet.createNode("fetch")
+			fetch.parm("source").set( node.glob("rop_geometry")[0].path() )
+
+			rop_merge.insertInput(0, fetch)
+
+			process_nodes.append(node)
+			fetch_nodes.append(fetch)
+		
+		sopnet.layoutChildren()
+		ropnet.layoutChildren()		
+	
+	@staticmethod
+	def cleanChildren(node):
+		sopnet = node.glob("sopnet")[0]
+		ropnet = node.glob("ropnet")[0]
+		nodes = sopnet.glob("*") + ropnet.glob("* ^merge_render_all")
+
+		for node in nodes:
+			node.destroy()

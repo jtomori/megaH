@@ -6,7 +6,32 @@
  a single file. -->
 
   <toolshelf name="megascans" label="Megascans tools">
+    <memberTool name="reload1"/>
     <memberTool name="crack"/>
     <memberTool name="index"/>
   </toolshelf>
+
+  <tool name="reload" label="Reload" icon="PLASMA_App">
+    <script scriptType="python"><![CDATA[import megaH
+reload(megaH)]]></script>
+  </tool>
+
+  <tool name="crack" label="Crack OBJs" icon="PLASMA_App">
+    <script scriptType="python"><![CDATA[import megaH
+megaH.crackAllObjsHou()
+
+]]></script>
+  </tool>
+
+  <tool name="index" label="Index assets" icon="PLASMA_App">
+    <script scriptType="python"><![CDATA[import megaH
+megaH.buildHierarchyHou()
+
+]]></script>
+  </tool>
+
+  <tool name="reload1" label="Reload" icon="PLASMA_App">
+    <script scriptType="python"><![CDATA[import megaH
+reload(megaH)]]></script>
+  </tool>
 </shelfDocument>

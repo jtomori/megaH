@@ -15,7 +15,7 @@ class Utils(object):
 	# return list of all folders inside specified folder, note that first list entry is "path" folder itself
 	@staticmethod	
 	def getFoldersPaths(path):
-		folders = [x[0] for x in os.walk(path)]
+		folders = [x[0] for x in os.walk(path)][1:] # skips first entry which is path itself
 		return folders
 
 	# return list of files matching mask inside specified folder
@@ -35,24 +35,43 @@ class Utils(object):
 		
 		return matches
 
-# generates and writes a dictionary with hierarchy of all megascan packs, assets their LODs
-class BuildHierarchy(object):
+# generates and writes a dictionary with hierarchy of all megascans assets and their respective LODs
+class BuildAssetsHierarchyNew(object):
+		# init function, creates needed variables, config
+		def __init__(self):
+			self.libPath = hou.getenv("MEGA_LIB") # a path pointing to root folder with assets to be indexed
+			self.libPath = os.path.normpath(self.libPath) # normalize it just to be sure
+			self.libPath = os.path.join(self.libPath, "3d") # append 3d folder which contains actual geometry
+			self.extMask = "*.obj" # extension of files (converted) to be indexed
+			self.libHierarchyJson = os.path.join(self.libPath, "index.json") # a path to output file with indexed data
+		
+		# build a dict containing all the assets and needed information
+		def build(self):
+			asset_folders_paths = Utils.getFoldersPaths(self.libPath)
+			asset_folders_names = []
+			
+			# create a dictionary with folder names as keys and folder full paths as values
+			index_dict = { os.path.basename( os.path.normpath(path) ):path for path in asset_folders_paths }
 
+			for key, value in index_dict.iteritems():
+				assets = Utils.getFilesByMask(value, self.extMask)
+				assets_dict = {}
+
+				for asset in assets:
+					asset_key = asset.split(".")[0].split("_")[-1]
+					assets_dict[asset_key] = asset
+
+				index_dict[key] = assets_dict
+
+			print json.dumps(index_dict, indent=4, sort_keys=True)
+
+# generates and writes a dictionary with hierarchy of all megascan packs, assets their LODs
+class BuildAssetsHierarchy(object):
 		# init function, creates needed variables
 		def __init__(self, path):
-			self.libPath = os.path.normpath(path)
-			self.extMask = "*.OBJ"
-			self.libHierarchyJson = os.path.join(self.libPath, "index.json")
-
-		# returns True if asset and LOD are reversed
-		def checkReverse(self, packs, pack):
-			assetName = Utils.getFilesByMask( os.path.join(self.libPath, packs[pack]), self.extMask )[0]
-			assetName = assetName.split(".")[0].split("_")[-1]
-			if assetName.isdigit():
-				correct = False
-			else:
-				correct = True
-			return correct
+			self.libPath = os.path.normpath(path) # a filesystem path pointing to assets root directory
+			self.extMask = "*.bgeo.sc" # extension of files (converted) to be indexed
+			self.libHierarchyJson = os.path.join(self.libPath, "index.json") # a path to output file with indexed data
 
 		# returns list of assets in a pack
 		def getAssets(self, packs, pack):
@@ -89,20 +108,19 @@ class BuildHierarchy(object):
 				hierarchy[packs[pack]] = assetDict
 
 			with open(self.libHierarchyJson, 'w') as out:
-				json.dump(hierarchy, out, indent = 1, sort_keys=True, ensure_ascii=False)
+				json.dump(hierarchy, out, indent=1, sort_keys=True, ensure_ascii=False)
 
 # indexes all the assets specified in MEGA_LIB env variable into a dictionary storad as a JSON file, it creates/overwrites MEGA_LIB/index.json
-def buildHierarchyHou():
+def buildAssetsHierarchyHou():
 	libPath = os.path.normpath(hou.getenv("MEGA_LIB"))
 	start = time.time()
-	hierarchy = BuildHierarchy(libPath)
+	hierarchy = BuildAssetsHierarchy(libPath)
 	hierarchy.build()
 	end = time.time()
 	hou.ui.displayMessage("Assets indexing done in: %0.3f seconds" % (end-start), title="Done")
 
 # a class covering functionality of jt_megaLoad digital asset
 class MegaLoad(object):
-
 	# init function, creates needed variables
 	def __init__(self):
 		self.libPath = os.path.normpath(hou.getenv("MEGA_LIB"))

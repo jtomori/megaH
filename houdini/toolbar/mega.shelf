@@ -25,7 +25,7 @@ megaH.crackAllObjsHou()
 
   <tool name="index" label="Index assets" icon="PLASMA_App">
     <script scriptType="python"><![CDATA[import megaH
-megaH.buildHierarchyHou()
+megaH.buildAssetsHierarchyHou()
 
 ]]></script>
   </tool>

@@ -282,7 +282,7 @@ class ProcessAssets(object):
 			fetch_nodes.append(fetch)
 		
 		sopnet.layoutChildren()
-		ropnet.layoutChildren()		
+		ropnet.layoutChildren()
 	
 	@staticmethod
 	def cleanChildren(node):

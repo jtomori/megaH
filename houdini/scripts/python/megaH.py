@@ -1,5 +1,14 @@
-import glob, os, time, json, fnmatch
+import os
 import hou
+import time
+import glob
+import json
+import logging
+import fnmatch
+
+# logging config
+logging.basicConfig(level=logging.DEBUG) # set to logging.INFO to disable DEBUG logs
+log = logging.getLogger(__name__)
 
 # a class containing convenience methods
 class Utils(object):
@@ -37,74 +46,169 @@ class Utils(object):
 
 # generates and writes a dictionary with hierarchy of all megascans assets and their respective LODs
 class BuildAssetsHierarchy(object):
-		# init function, creates needed variables, config
-		def __init__(self, ):
-			self.libPath = hou.getenv("MEGA_LIB") # a path pointing to root folder with assets to be indexed
-			self.libPath = os.path.normpath(self.libPath) # normalize it just to be sure
-			self.libPath = os.path.join(self.libPath, "3d") # append 3d folder which contains actual geometry
-			self.extMask = "*.obj" # extension of files (converted) to be indexed
-			self.libHierarchyJson = os.path.join(self.libPath, "index.json") # a path to output file with indexed data
+	# init function, creates needed variables, config
+	def __init__(self, ):
+		self.libPath = hou.getenv("MEGA_LIB") # a path pointing to root folder with assets to be indexed
+		self.libPath = os.path.normpath(self.libPath) # normalize it just to be sure
+		self.libPath = os.path.join(self.libPath, "3d") # append 3d folder which contains actual geometry
+		self.extMask = "*.bgeo.sc" # extension of files (converted) to be indexed
+		self.libHierarchyJson = os.path.join(self.libPath, "index.json") # a path to output file with indexed data
+	
+	# build a dict containing all the assets and needed information
+	def build(self, debug=False):
+		asset_folders_paths = Utils.getFoldersPaths(self.libPath)
+		asset_folders_names = []
 		
-		# build a dict containing all the assets and needed information
-		def build(self, debug=False):
-			asset_folders_paths = Utils.getFoldersPaths(self.libPath)
-			asset_folders_names = []
+		# create a dictionary with folder names as keys and folder full paths as values
+		index_dict = { os.path.basename( os.path.normpath(path) ):path for path in asset_folders_paths }
+
+		for key, value in index_dict.iteritems():
+			# get all asset files inside of a dir
+			assets = Utils.getFilesByMask(value, self.extMask)
+			folder_path = value
+
+			# generate a dict of assets - LOD as a key, file name as a value
+			lods_dict = {}
+			for asset in assets:
+				asset_key = asset.split(".")[0].split("_")[-1]
+				lods_dict[asset_key] = asset
 			
-			# create a dictionary with folder names as keys and folder full paths as values
-			index_dict = { os.path.basename( os.path.normpath(path) ):path for path in asset_folders_paths }
+			# move the whole dict into another dict - for the future, it will enable to store more information without breaking the tool
+			asset_dict = {"assets" : lods_dict}
+			asset_dict["path"] = folder_path
 
-			for key, value in index_dict.iteritems():
-				# get all asset files inside of a dir
-				assets = Utils.getFilesByMask(value, self.extMask)
-				folder_path = value
+			# get metadata from accompanying json file
+			environment = {}
+			tags = {}
+			asset_json = Utils.getFilesByMask(value, "*.json")[0]
+			asset_json_path = os.path.join(folder_path, asset_json)
+			if os.path.isfile(asset_json_path):
+				with open(asset_json_path) as f:
+					json_data = json.load(f)
+					# here you can query data from asset json file and save it to a variable
+					tags = json_data["tags"]
+					environment = json_data["environment"]
+			# include those data into asset in the index
+			asset_dict["tags"] = tags
+			asset_dict["environment"] = environment
 
-				# generate a dict of assets - LOD as a key, file name as a value
-				lods_dict = {}
-				for asset in assets:
-					asset_key = asset.split(".")[0].split("_")[-1]
-					lods_dict[asset_key] = asset
-				
-				# move the whole dict into another dict - for the future, it will enable to store more information without breaking the tool
-				asset_dict = {"assets" : lods_dict}
-				asset_dict["path"] = folder_path
+			# replace folder path with a dict of assets
+			index_dict[key] = asset_dict
 
-				# get metadata from accompanying json file
-				environment = {}
-				tags = {}
-				asset_json = Utils.getFilesByMask(value, "*.json")[0]
-				asset_json_path = os.path.join(folder_path, asset_json)
-				if os.path.isfile(asset_json_path):
-					with open(asset_json_path) as f:
-						json_data = json.load(f)
-						tags = json_data["tags"]
-						environment = json_data["environment"]
-				asset_dict["tags"] = tags
-				asset_dict["environment"] = environment
+		# write constructed json to stdout / file
+		if debug:
+			print json.dumps(index_dict, indent=4, sort_keys=True)
+		else:
+			with open(self.libHierarchyJson, 'w') as out:
+				json.dump(index_dict, out, indent=2, sort_keys=True, ensure_ascii=False)
+	
+	# indexes all the assets and displays time information, ALT+Click for debug mode (printing to stdout instead of a file)
+	def buildAssetsHierarchyHou(self, kwargs):
+		start = time.time()
+		if kwargs["altclick"]:
+			debug = True
+		else:
+			debug = False
+		self.build(debug)
+		end = time.time()
+		hou.ui.displayMessage("Assets indexing done in: %0.4f seconds" % (end-start), title="Done")
 
-				# replace folder path with a dict of assets
-				index_dict[key] = asset_dict
+# a class implementing functionality of mega load digital asset
+class MegaLoad(object):
+	def __init__(self, force_recache=False):
+		self.libPath = hou.getenv("MEGA_LIB") # a path pointing to root folder with assets to be indexed
+		self.libPath = os.path.normpath(self.libPath) # normalize it just to be sure		
+		self.libPath = os.path.join(self.libPath, "3d") # append 3d folder which contains actual geometry
+		self.libHierarchyJson = os.path.join(self.libPath, "index.json") # a path to output file with indexed data
+		self.shader = ""
 
-			# write constructed json to stdout / file
-			if debug:
-				print json.dumps(index_dict, indent=4, sort_keys=True)
-			else:
-				with open(self.libHierarchyJson, 'w') as out:
-					json.dump(index_dict, out, indent=2, sort_keys=True, ensure_ascii=False)
+		# cache loaded index into hou.session, if re-indexed, it needs to be re-created
+		if not hasattr(hou.session, "mega_index") or force_recache:
+			log.debug("Library index is not loaded into the session, loading...")
+			with open(self.libHierarchyJson) as data:
+				parsed = json.load(data)
+				setattr(hou.session, "mega_index", parsed)
+		else:
+			log.debug("Using cached library index")
+		
+		self.assetsIndex = hou.session.mega_index
+	
+	# returns a houdini-menu style list of assets
+	def assetMenuList(self):
+		keys = self.assetsIndex.keys() # get all keys form index dictionary, sorted
+		keys.sort()
+		keys = [str(x) for pair in zip(keys,keys) for x in pair] # duplicate all elements, for houdini menu
+		return keys
 
-# indexes all the assets specified in MEGA_LIB env variable into a dictionary storad as a JSON file, it creates/overwrites MEGA_LIB/index.json
-def buildAssetsHierarchyHou(kwargs):
-	start = time.time()
-	hierarchy = BuildAssetsHierarchy()
-	if kwargs["altclick"]:
-		debug = True
-	else:
-		debug = False
-	hierarchy.build(debug)
-	end = time.time()
-	hou.ui.displayMessage("Assets indexing done in: %0.4f seconds" % (end-start), title="Done")
+	# returns a houdini-menu style list of LODs for selected asset
+	def lodMenuList(self, node=None):
+		if node == None:
+			node = hou.pwd()
+
+		# eval parameter and pick corresponding value from index dict
+		asset_number = node.parm("asset").eval()
+		asset_items = node.parm("asset").menuItems()
+		asset = asset_items[asset_number]
+
+		asset_dict = self.assetsIndex[asset]
+		lods = asset_dict["assets"] # load "assets" key, which has all LODs and file names
+
+		# convert lods dict into houdini-menu style list
+		menu_lods = lods.keys()
+		menu_lods.sort()
+		for i, lod in enumerate(menu_lods):
+			menu_lods[i] = [str(lods[lod]), str(lod)]
+		
+		menu_lods = Utils.flatten(menu_lods) # flatten list of lists
+		return menu_lods
+
+	def updateParms(self):
+		node = hou.pwd()
+
+		# get selected asset
+		asset_number = node.parm("asset").eval()
+		asset_items = node.parm("asset").menuItems()
+		asset_lod_number = node.parm("asset_lod").eval()
+		asset_lod_items = node.parm("asset_lod").menuItems()
+
+		lod = asset_lod_items[asset_lod_number]
+		asset = asset_items[asset_number]
+
+		asset_dict = self.assetsIndex[asset]
+
+		folder_path = asset_dict["path"]
+		file_path = os.path.join(folder_path, lod)
+		file_path = file_path.replace( self.libPath, "$MEGA_LIB", 1 )
+
+		print file_path
+
+	# checks checkbox in asset, if set, it will rename current node by asset name and LOD, it should be bound to callback of a load button (which might by hidden)
+	def autoRename(self):
+		node = hou.pwd()
+		currentName = node.name()
+		enabled = node.evalParm("rename_node")
+
+		# get selected asset
+		asset_number = node.parm("asset").eval()
+		asset_items = node.parm("asset").menuItems()
+
+		# get selected LOD
+		asset_lod_number = node.parm("asset_lod").eval()
+		asset_lod_items = node.parm("asset_lod").menuLabels()
+
+		newName = asset_items[asset_number] + "_" + asset_lod_items[asset_lod_number] + "_0"
+
+		if enabled and (currentName != newName):
+			node.setName(newName, unique_name=True)
+	
+	# apply asset and lod selection into parameter values and rename node
+	def apply(self):
+		self.updateParms()
+		self.autoRename()
+
 
 # a class covering functionality of jt_megaLoad digital asset
-class MegaLoad(object):
+class MegaLoadOld(object):
 	# init function, creates needed variables
 	def __init__(self):
 		self.libPath = os.path.normpath(hou.getenv("MEGA_LIB"))

@@ -7,7 +7,6 @@
 
   <toolshelf name="megascans" label="Megascans tools">
     <memberTool name="reload1"/>
-    <memberTool name="crack"/>
     <memberTool name="index"/>
   </toolshelf>
 
@@ -16,21 +15,14 @@
 reload(megaH)]]></script>
   </tool>
 
-  <tool name="crack" label="Crack OBJs" icon="PLASMA_App">
-    <script scriptType="python"><![CDATA[import megaH
-megaH.crackAllObjsHou()
-
-]]></script>
-  </tool>
-
   <tool name="index" label="Index assets" icon="PLASMA_App">
+    <helpText><![CDATA["""Index assets library, ALT-Click for debug mode"""]]></helpText>
     <script scriptType="python"><![CDATA[import megaH
-megaH.buildAssetsHierarchyHou()
-
-]]></script>
+megaH.buildAssetsHierarchyHou(kwargs)]]></script>
   </tool>
 
   <tool name="reload1" label="Reload" icon="PLASMA_App">
+    <helpText><![CDATA["""Reload megaH library, for development purposes"""]]></helpText>
     <script scriptType="python"><![CDATA[import megaH
 reload(megaH)]]></script>
   </tool>

@@ -182,11 +182,16 @@ class MegaLoad(object):
 		
 		self.assetsIndex = hou.session.mega_index
 	
-	def assetMenuList(self):
+	def assetMenuList(self, node=None):
 		"""
 		returns a houdini-menu style list of assets
 		"""
+		if node == None:
+			node = hou.pwd()
+
 		keys = self.assetsIndex.keys() # get all keys form index dictionary, sorted
+		filter_mask = node.parm("filter").unexpandedString()
+		keys = fnmatch.filter(keys, filter_mask)
 		keys.sort()
 		keys = [str(x) for pair in zip(keys,keys) for x in pair] # duplicate all elements, for houdini menu
 		return keys

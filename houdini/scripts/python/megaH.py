@@ -169,6 +169,7 @@ class MegaLoad(object):
 		self.libPath_3d = os.path.join(self.libPath, "3d") # append 3d folder which contains actual geometry
 		self.libHierarchyJson = os.path.join(self.libPath_3d, "index.json") # a path to output file with indexed data
 		self.shader = ""
+		self.textures = ["Albedo", "Bump", "Cavity", "Displacement", "Gloss", "NormalBump", "Normal", "Roughness", "Specular", "Opacity", "Fuzz"] # list of all possible textures, there should be corresponding parameters on the node (with the same name, but first letter is lowercase)
 
 		# cache loaded index into hou.session, if re-indexed, it needs to be re-created
 		if not hasattr(hou.session, "mega_index") or force_recache:
@@ -214,6 +215,66 @@ class MegaLoad(object):
 		menu_lods = Utils.flatten(menu_lods) # flatten list of lists
 		return menu_lods
 
+	def findTextures(self, path, lod, debug=False):
+		"""
+		finds textures in specified path, returns a dict, where keys are names of parameters and values are texture paths
+		"""
+		tex_dict = {}
+		for tex in self.textures:
+			# first letter to lowercase
+			key = list(tex)
+			key[0] = key[0].lower()
+			key = "".join(key)
+
+			pattern = "*" + tex + ".*"
+
+			# do the pattern for normal map
+			if tex == "Normal":
+				pattern = "*" + tex + "[_.]*"
+			
+			# do the pattern for bump map (to exclude NormalBump)
+			if tex == "Bump":
+				pattern = "*_" + tex + "*"
+
+			files = Utils.getFilesByMask(path, pattern)
+			picked_file = ""
+
+			# if multiple LODs are captured, pick only corresponding ones
+			if tex == "Normal" and len(files) > 1:
+				files = fnmatch.filter(files, "*" + lod + "*")
+
+			# convert list of found texture candidates to the most suitable one :)
+			if len(files) > 1:
+				extensions = []
+				for file in files:
+					extensions.append( file.split(".")[-1] )
+				
+				order = ["jpg", "tif", "png", "exr", "tx", "rat"] # ascending priority list of extensions to be picked
+				idx = 0
+				for ext in order:
+					if ext in extensions:
+						idx = extensions.index(ext)
+				
+				picked_file = files[idx]
+
+			elif len(files) == 1:
+				picked_file = files[0]
+			else:
+				picked_file = ""
+			
+			if picked_file != "":
+				picked_file = os.path.join(path, picked_file)
+			tex_dict[key] = picked_file
+		
+		# if normalBump texture does not exist, then use universal normal
+		if tex_dict["normalBump"] == "":
+			tex_dict["normalBump"] = tex_dict["normal"]
+
+		if debug:
+			print json.dumps(tex_dict, indent=4, sort_keys=True)
+		return tex_dict
+		
+
 	def updateParms(self):
 		"""
 		updates mega load parameters with asset paths, lods, textures and stuff
@@ -231,14 +292,24 @@ class MegaLoad(object):
 		display_lod_items = node.parm("display_lod_level").menuItems()
 
 		asset = asset_items[asset_number]
-		lod = asset_lod_items[asset_lod_number]
-		lod_label = asset_lod_labels[asset_lod_number]
-		dispaly_lod = display_lod_items[display_lod_number]
 
+		# in case asset changes and there are not enough of LODs in the list
+		try:
+			lod = asset_lod_items[asset_lod_number]
+			lod_label = asset_lod_labels[asset_lod_number]
+			dispaly_lod = display_lod_items[display_lod_number]
+		except IndexError:
+			node.parm("asset_lod").set(0)
+			lod = asset_lod_items[0]
+			lod_label = asset_lod_labels[0]
+			node.parm("display_lod_level").set( len(display_lod_items)-1 )
+			dispaly_lod = display_lod_items[ len(display_lod_items)-1 ]
+		
 		asset_dict = self.assetsIndex[asset]
 
 		# determine asset and asset display paths
 		folder_path = asset_dict["path"]
+		folder_path_expanded = hou.expandString(folder_path)
 		asset_path = os.path.join(folder_path, lod)
 		asset_display_path = os.path.join(folder_path, dispaly_lod)
 		if not relative_enable:
@@ -249,38 +320,18 @@ class MegaLoad(object):
 		asset_lod_number = "High" if lod_label == "High" else lod_label
 
 		# determine texture paths
-		texture_resolution = node.parm("texture_resolution").eval()
-		texture_extension = node.parm("texture_extension").eval()
-		texture_extension_displacement = node.parm("texture_extension_displacement").eval()
 
-		tex_path_base = "_".join( asset_path.split("_")[:-1] ) + "_"
-		tex_path_base = tex_path_base + texture_resolution
-
-		albedo = tex_path_base + "_" + "Albedo" + texture_extension
-		bump = tex_path_base + "_" + "Bump" + texture_extension
-		cavity = tex_path_base + "_" + "Cavity" + texture_extension
-		fuzz = tex_path_base + "_" + "Fuzz" + texture_extension
-		roughness = tex_path_base + "_" + "Roughness" + texture_extension
-		specular = tex_path_base + "_" + "Specular" + texture_extension
-		normal = tex_path_base + "_" + "Normal" + "_" + asset_lod_number + texture_extension
-		normal = normal if asset_lod_number != "High" else ""
-		normalBump = tex_path_base + "_" + "NormalBump" + texture_extension
-		displacement = tex_path_base + "_" + "Displacement" + texture_extension_displacement
+		# get texture paths and update parameters
+		tex_dict = self.findTextures(path=folder_path_expanded, lod=asset_lod_number)
+		for key, value in tex_dict.iteritems():
+			if relative_enable:
+				value = value.replace(self.libPath, "$MEGA_LIB")
+			node.parm(key).set(value)
 
 		# update parameters
 		node.parm("asset_path").set(asset_path)
 		node.parm("asset_display_path").set(asset_display_path)
 		node.parm("asset_lod_number").set(asset_lod_number)
-
-		node.parm("albedo").set(albedo)
-		node.parm("bump").set(bump)
-		node.parm("cavity").set(cavity)
-		node.parm("fuzz").set(fuzz)
-		node.parm("roughness").set(roughness)
-		node.parm("specular").set(specular)
-		node.parm("normal").set(normal)
-		node.parm("normalBump").set(normalBump)
-		node.parm("displacement").set(displacement)
 
 	def autoRename(self):
 		"""

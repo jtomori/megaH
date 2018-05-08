@@ -10,11 +10,6 @@
     <memberTool name="index"/>
   </toolshelf>
 
-  <tool name="reload" label="Reload" icon="PLASMA_App">
-    <script scriptType="python"><![CDATA[import megaH
-reload(megaH)]]></script>
-  </tool>
-
   <tool name="index" label="Index assets" icon="PLASMA_App">
     <helpText><![CDATA["""Index assets library, ALT-Click for debug mode"""]]></helpText>
     <script scriptType="python"><![CDATA[import megaH

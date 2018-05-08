@@ -18,7 +18,8 @@ reload(megaH)]]></script>
   <tool name="index" label="Index assets" icon="PLASMA_App">
     <helpText><![CDATA["""Index assets library, ALT-Click for debug mode"""]]></helpText>
     <script scriptType="python"><![CDATA[import megaH
-megaH.buildAssetsHierarchyHou(kwargs)]]></script>
+h = megaH.BuildAssetsHierarchy()
+h.buildAssetsHierarchyHou(kwargs)]]></script>
   </tool>
 
   <tool name="reload1" label="Reload" icon="PLASMA_App">

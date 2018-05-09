@@ -65,20 +65,26 @@ class Utils(object):
 				folders.append(root)
 		return folders
 
-class BuildAssetsHierarchy(object):
+class MegaInit(object):
 	"""
-	generates and writes a dictionary with hierarchy of all megascans assets and their respective LODs
+	class setting up useful member variables
 	"""
-	def __init__(self, ):
+	def __init__(self, force_recache=False):
 		"""
 		init function, creates needed variables, config
 		"""
 		self.libPath = hou.getenv("MEGA_LIB") # a path pointing to root folder with assets to be indexed
 		self.libPath = os.path.normpath(self.libPath) # normalize it just to be sure
-		self.libPath_3d = os.path.join(self.libPath, "3d") # append 3d folder which contains actual geometry
+		self.libPath_3d = os.path.join(self.libPath, "3d").replace("\\", "/") # append 3d folder which contains actual geometry and convert to linux-style
+		self.libHierarchyJson = os.path.join(self.libPath_3d, "index.json").replace("\\", "/") # a path to output file with indexed data (linux-style)
 		self.extMask = "*.bgeo.sc" # extension of files (converted) to be indexed
-		self.libHierarchyJson = os.path.join(self.libPath_3d, "index.json") # a path to output file with indexed data
-	
+		self.textures = ["Albedo", "Bump", "Cavity", "Displacement", "Gloss", "NormalBump", "Normal", "Roughness", "Specular", "Opacity", "Fuzz"] # list of all possible textures, there should be corresponding parameters on the node (with the same name, but first letter is lowercase)
+		self.shader = ""
+
+class BuildAssetsHierarchy(MegaInit):
+	"""
+	generates and writes a dictionary with hierarchy of all megascans assets and their respective LODs
+	"""
 	def build(self, debug=False):
 		"""
 		build a dict containing all the assets and needed information
@@ -91,18 +97,28 @@ class BuildAssetsHierarchy(object):
 
 		for key, value in index_dict.iteritems():
 			# get all asset files inside of a dir
-			assets = Utils.getFilesByMask(value, self.extMask)
+			dir_files = Utils.getFilesByMask(value, self.extMask)
+			assets = dir_files
 			folder_path = value
 
+			assets = [ a.split("_")[-2] for a in assets ] # keep only asset number
+			assets = list( set(assets) )
+
 			# generate a dict of assets - LOD as a key, file name as a value
-			lods_dict = {}
+			assets_dict = {}
 			for asset in assets:
-				asset_key = asset.split(".")[0].split("_")[-1]
-				lods_dict[asset_key] = asset
+				lods_dict = {}
+				matching_lods = fnmatch.filter(dir_files, "*_{}_*".format(asset) )
+
+				for lod in matching_lods:
+					lod_key = lod.split(".")[0].split("_")[-1]
+					lods_dict[lod_key] = lod
+
+				assets_dict[asset] = lods_dict
 			
 			# move the whole dict into another dict - for the future, it will enable to store more information without breaking the tool
-			asset_dict = {"assets" : lods_dict}
-			asset_dict["path"] = folder_path.replace( self.libPath, "$MEGA_LIB", 1 )
+			asset_dict = {"assets" : assets_dict}
+			asset_dict["path"] = folder_path.replace( self.libPath, "$MEGA_LIB", 1 ).replace("\\","/") # the last replace is for using linux-style slashes, as H handles them well and both OS'es will produce the same index
 
 			# preview image
 			preview_image = Utils.getFilesByMask(value, "*Preview*")
@@ -123,9 +139,14 @@ class BuildAssetsHierarchy(object):
 					# here you can query data from asset json file and save it to a variable
 					tags = json_data["tags"]
 					environment = json_data["environment"]
+
 			# include those data into asset in the index
 			asset_dict["tags"] = tags
 			asset_dict["environment"] = environment
+
+			# add texture information
+			tex_dict = self.findTextures(path=folder_path)
+			asset_dict["textures"] = tex_dict
 
 			# replace folder path with a dict of assets
 			index_dict[key] = asset_dict
@@ -158,69 +179,8 @@ class BuildAssetsHierarchy(object):
 		
 		end = time.time()
 		hou.ui.displayMessage("Assets indexing done in: %0.4f seconds" % (end-start), title="Done")
-
-class MegaLoad(object):
-	"""
-	class implementing functionality of mega load digital asset
-	"""
-	def __init__(self, force_recache=False):
-		self.libPath = hou.getenv("MEGA_LIB") # a path pointing to root folder with assets to be indexed
-		self.libPath = os.path.normpath(self.libPath) # normalize it just to be sure
-		self.libPath_3d = os.path.join(self.libPath, "3d") # append 3d folder which contains actual geometry
-		self.libHierarchyJson = os.path.join(self.libPath_3d, "index.json") # a path to output file with indexed data
-		self.shader = ""
-		self.textures = ["Albedo", "Bump", "Cavity", "Displacement", "Gloss", "NormalBump", "Normal", "Roughness", "Specular", "Opacity", "Fuzz"] # list of all possible textures, there should be corresponding parameters on the node (with the same name, but first letter is lowercase)
-
-		# cache loaded index into hou.session, if re-indexed, it needs to be re-created
-		if not hasattr(hou.session, "mega_index") or force_recache:
-			log.debug("Library index is not loaded into the session, loading...")
-			with open(self.libHierarchyJson) as data:
-				parsed = json.load(data)
-				setattr(hou.session, "mega_index", parsed)
-		else:
-			log.debug("Using cached library index")
-		
-		self.assetsIndex = hou.session.mega_index
 	
-	def assetMenuList(self, node=None):
-		"""
-		returns a houdini-menu style list of assets
-		"""
-		if node == None:
-			node = hou.pwd()
-
-		keys = self.assetsIndex.keys() # get all keys form index dictionary, sorted
-		filter_mask = node.parm("filter").unexpandedString()
-		keys = fnmatch.filter(keys, filter_mask)
-		keys.sort()
-		keys = [str(x) for pair in zip(keys,keys) for x in pair] # duplicate all elements, for houdini menu
-		return keys
-
-	def lodMenuList(self, node=None):
-		"""
-		returns a houdini-menu style list of LODs for selected asset
-		"""
-		if node == None:
-			node = hou.pwd()
-
-		# eval parameter and pick corresponding value from index dict
-		asset_number = node.parm("asset").eval()
-		asset_items = node.parm("asset").menuItems()
-		asset = asset_items[asset_number]
-
-		asset_dict = self.assetsIndex[asset]
-		lods = asset_dict["assets"] # load "assets" key, which has all LODs and file names
-
-		# convert lods dict into houdini-menu style list
-		menu_lods = lods.keys()
-		menu_lods.sort()
-		for i, lod in enumerate(menu_lods):
-			menu_lods[i] = [str(lods[lod]), str(lod)]
-		
-		menu_lods = Utils.flatten(menu_lods) # flatten list of lists
-		return menu_lods
-
-	def findTextures(self, path, lod, debug=False):
+	def findTextures(self, path):
 		"""
 		finds textures in specified path, returns a dict, where keys are names of parameters and values are texture paths
 		"""
@@ -244,41 +204,139 @@ class MegaLoad(object):
 			files = Utils.getFilesByMask(path, pattern)
 			picked_file = ""
 
-			# if multiple LODs are captured, pick only corresponding ones
+			order = ["jpg", "tif", "png", "exr", "tx", "rat"] # ascending priority list of extensions to be picked
+			# process normals differently from other textures
 			if tex == "Normal" and len(files) > 1:
-				files = fnmatch.filter(files, "*" + lod + "*")
-
-			# convert list of found texture candidates to the most suitable one :)
-			if len(files) > 1:
-				extensions = []
-				for file in files:
-					extensions.append( file.split(".")[-1] )
+				picked_file = {}
+				# find unique LODs found
+				lods = [f.split(".")[0].split("_")[-1] for f in files]
+				lods = list( set(lods) )
 				
-				order = ["jpg", "tif", "png", "exr", "tx", "rat"] # ascending priority list of extensions to be picked
-				idx = 0
-				for ext in order:
-					if ext in extensions:
-						idx = extensions.index(ext)
+				# from all LODs found, create a dict like this "LOD0" : ["texture_LOD0.jpg", ...]
+				for lod in lods:
+					picked_file[lod] = fnmatch.filter( files, "*{}*".format(lod) )
 				
-				picked_file = files[idx]
-
-			elif len(files) == 1:
-				picked_file = files[0]
+				# our values can be lists (in case there are normal maps with multiple extensions), bellow code handles it
+				for lod, files_list in picked_file.iteritems():
+					if len(lod) == 1:
+						picked_file[lod] = files_list[0]
+					elif len(lod) > 1:
+						# convert list of found texture candidates to the most suitable one :)
+						extensions = []
+						for file in lod:
+							extensions.append( file.split(".")[-1] )
+						
+						idx = 0
+						for ext in order:
+							if ext in extensions:
+								idx = extensions.index(ext)
+						
+						picked_file[lod] = files_list[idx]
+					else:
+						picked_file[lod] = ""
 			else:
-				picked_file = ""
-			
-			if picked_file != "":
-				picked_file = os.path.join(path, picked_file)
+				# convert list of found texture candidates to the most suitable one :)
+				if len(files) > 1:
+					extensions = []
+					for file in files:
+						extensions.append( file.split(".")[-1] )
+					
+					idx = 0
+					for ext in order:
+						if ext in extensions:
+							idx = extensions.index(ext)
+					
+					picked_file = files[idx]
+				elif len(files) == 1:
+					picked_file = files[0]
+				else:
+					picked_file = ""
+
 			tex_dict[key] = picked_file
 		
 		# if normalBump texture does not exist, then use universal normal
 		if tex_dict["normalBump"] == "":
 			tex_dict["normalBump"] = tex_dict["normal"]
-
-		if debug:
-			print json.dumps(tex_dict, indent=4, sort_keys=True)
-		return tex_dict
 		
+		return tex_dict
+
+class MegaLoad(MegaInit):
+	"""
+	class implementing functionality of mega load digital asset
+	"""
+	def __init__(self, force_recache=False):
+		super(MegaLoad, self).__init__() # call parent class constructor
+
+		# cache loaded index into hou.session, if re-indexed, it needs to be re-created
+		if not hasattr(hou.session, "mega_index") or force_recache:
+			log.debug("Library index is not loaded into the session, loading...")
+			with open(self.libHierarchyJson) as data:
+				parsed = json.load(data)
+				setattr(hou.session, "mega_index", parsed)
+		else:
+			log.debug("Using cached library index")
+		
+		self.assetsIndex = hou.session.mega_index
+	
+	def assetPackMenuList(self, node=None):
+		"""
+		returns a houdini-menu style list of asset packs
+		"""
+		if node == None:
+			node = hou.pwd()
+
+		keys = self.assetsIndex.keys() # get all keys form index dictionary
+		filter_mask = node.parm("filter").unexpandedString()
+		keys = fnmatch.filter(keys, filter_mask)
+		keys.sort()
+		keys = [str(x) for pair in zip(keys,keys) for x in pair] # duplicate all elements, for houdini menu
+		return keys
+
+	def assetMenuList(self, node=None):
+		"""
+		returns a houdini-menu style list of assets of selected pack
+		"""
+		if node == None:
+			node = hou.pwd()
+		
+		# eval asset_pack parameter and pick corresponding value from index dict
+		asset_pack_number = node.parm("asset_pack").eval()
+		asset_pack_items = node.parm("asset_pack").menuItems()
+		asset_pack = asset_pack_items[asset_pack_number]
+
+		keys = self.assetsIndex[asset_pack]["assets"].keys()
+		keys = [int(k) for k in keys]
+		keys.sort()
+		keys = [str(k) for k in keys]		
+
+		keys = [str(x) for pair in zip(keys,keys) for x in pair] # duplicate all elements, for houdini menu
+		return keys
+
+	def lodMenuList(self, node=None):
+		"""
+		returns a houdini-menu style list of LODs for selected asset
+		"""
+		if node == None:
+			node = hou.pwd()
+
+		# eval asset_pack parameter and pick corresponding value from index dict
+		asset_pack_number = node.parm("asset_pack").eval()
+		asset_pack_items = node.parm("asset_pack").menuItems()
+		asset_pack = asset_pack_items[asset_pack_number]
+
+		# eval asset parameter and pick corresponding value from index dict
+		asset_number = node.parm("asset").eval()
+		asset_items = node.parm("asset").menuItems()
+		asset = asset_items[asset_number]
+
+		lods_dict = self.assetsIndex[asset_pack]["assets"][asset]
+
+		# convert lods dict into houdini-menu style list
+		menu_lods = lods_dict.keys()
+		menu_lods.sort()
+		menu_lods = [str(x) for pair in zip(menu_lods,menu_lods) for x in pair]
+
+		return menu_lods
 
 	def updateParms(self):
 		"""
@@ -288,49 +346,58 @@ class MegaLoad(object):
 		relative_enable = node.parm("paths_relative_enable").eval()
 
 		# get selected asset, lod and display lod from node parameters
+		asset_pack_number = node.parm("asset_pack").eval()
+		asset_pack_items = node.parm("asset_pack").menuItems()
 		asset_number = node.parm("asset").eval()
 		asset_items = node.parm("asset").menuItems()
 		asset_lod_number = node.parm("asset_lod").eval()
-		asset_lod_items = node.parm("asset_lod").menuItems()
 		asset_lod_labels = node.parm("asset_lod").menuLabels()
 		display_lod_number = node.parm("display_lod_level").eval()
-		display_lod_items = node.parm("display_lod_level").menuItems()
+		display_lod_labels = node.parm("display_lod_level").menuLabels()
 
-		asset = asset_items[asset_number]
+		asset_pack = asset_pack_items[asset_pack_number]
 
 		# in case asset changes and there are not enough of LODs in the list
 		try:
-			lod = asset_lod_items[asset_lod_number]
-			lod_label = asset_lod_labels[asset_lod_number]
-			dispaly_lod = display_lod_items[display_lod_number]
+			asset = asset_items[asset_number]
+			lod = asset_lod_labels[asset_lod_number]
+			display_lod = display_lod_labels[display_lod_number]
 		except IndexError:
+			node.parm("asset").set(0)
+			asset = asset_items[0]
 			node.parm("asset_lod").set(0)
-			lod = asset_lod_items[0]
-			lod_label = asset_lod_labels[0]
-			node.parm("display_lod_level").set( len(display_lod_items)-1 )
-			dispaly_lod = display_lod_items[ len(display_lod_items)-1 ]
+			lod = asset_lod_labels[0]
+			node.parm("display_lod_level").set( len(display_lod_labels)-1 )
+			dispaly_lod = display_lod_labels[ len(display_lod_labels)-1 ]
 		
-		asset_dict = self.assetsIndex[asset]
+		asset_pack_dict = self.assetsIndex[asset_pack]
+		lods_dict = asset_pack_dict["assets"][asset]
 
 		# determine asset and asset display paths
-		folder_path = asset_dict["path"]
+		folder_path = asset_pack_dict["path"]
 		folder_path_expanded = hou.expandString(folder_path)
-		asset_path = os.path.join(folder_path, lod)
-		asset_display_path = os.path.join(folder_path, dispaly_lod)
+		asset_path = os.path.join(folder_path, lods_dict[lod]).replace("\\", "/")
+		asset_display_path = os.path.join(folder_path, lods_dict[display_lod]).replace("\\", "/")
 		if not relative_enable:
 			asset_path = asset_path.replace( "$MEGA_LIB", self.libPath, 1 )
 			asset_display_path = asset_display_path.replace( "$MEGA_LIB", self.libPath, 1 )			
 
 		# determine asset lod number
-		asset_lod_number = "High" if lod_label == "High" else lod_label
+		asset_lod_number = "High" if lod == "High" else lod
 
 		# determine texture paths
-
-		# get texture paths and update parameters
-		tex_dict = self.findTextures(path=folder_path_expanded, lod=asset_lod_number)
+		tex_dict = asset_pack_dict["textures"]
 		for key, value in tex_dict.iteritems():
+			# if doing normals, then select corresponding one
+			if isinstance(value, dict):
+				value = value[lod]
+
+			if value != "":
+				value = os.path.join(folder_path_expanded, value).replace("\\", "/")
+
 			if relative_enable:
 				value = value.replace(self.libPath, "$MEGA_LIB")
+			
 			node.parm(key).set(value)
 
 		# update parameters
@@ -346,15 +413,19 @@ class MegaLoad(object):
 		currentName = node.name()
 		enabled = node.evalParm("rename_node")
 
+		# get selected asset pack
+		asset_pack_number = node.parm("asset_pack").eval()
+		asset_pack_items = node.parm("asset_pack").menuItems()
+
 		# get selected asset
 		asset_number = node.parm("asset").eval()
 		asset_items = node.parm("asset").menuItems()
 
 		# get selected LOD
 		asset_lod_number = node.parm("asset_lod").eval()
-		asset_lod_items = node.parm("asset_lod").menuLabels()
+		asset_lod_items = node.parm("asset_lod").menuItems()
 
-		newName = asset_items[asset_number] + "_" + asset_lod_items[asset_lod_number] + "_0"
+		newName = "{pack}_{asset}_{lod}_0".format(pack=asset_pack_items[asset_pack_number], asset=asset_items[asset_number], lod=asset_lod_items[asset_lod_number])
 
 		if enabled and (currentName != newName):
 			node.setName(newName, unique_name=True)
@@ -374,6 +445,7 @@ class ProcessAssets(object):
 	def convertInFilePath(node):
 		"""
 		gets a path, extension from param from parent and replaces extension
+		this function is not used anymore
 		"""
 		extension = ".bgeo.sc"
 		parent_node = node.parent()
@@ -388,6 +460,39 @@ class ProcessAssets(object):
 		out_path = hou.expandString(out_path)
 
 		return out_path
+
+	@staticmethod
+	def convertInFilePathCracked(node):
+		"""
+		gets a path, extension from param from parent and replaces extension, prepends LOD with current asset number
+		"""
+		extension = ".bgeo.sc"
+		parent_node = node.parent()
+
+		try:
+			in_path = parent_node.parm("file").unexpandedString()
+			in_ext = parent_node.parent().parent().parm("ext").eval()
+			asset_number = node.parm("asset_number").eval()
+		except AttributeError:
+			raise AttributeError("'file', 'ext' or 'asset_number' parameter not found")
+		
+		out_path = in_path.replace(in_ext, extension)
+		out_path = out_path.split("_")
+		out_path.insert(-1, asset_number)
+		out_path = "_".join(out_path)
+
+		return out_path.replace("\\", "/")
+
+	@staticmethod
+	def getDummyPath():
+		"""
+		generates a dummy path which is used for all ROPs to write to an empty file
+		it is needed to be able to trigger cooking of node tree coming into ROPs (this node tree does the real writing)
+		"""
+		lib_root = os.path.normpath( hou.getenv("MEGA_LIB") )
+		dummy_file = os.path.join(lib_root, "3d", "dummy.bgeo.sc")
+
+		return dummy_file.replace("\\", "/")
 
 	@staticmethod
 	def generateProcessAssetsNodes(node):
@@ -408,12 +513,12 @@ class ProcessAssets(object):
 		process_nodes = []
 		fetch_nodes = []
 
-		for file in files:
+		for file_current in files:
 			node = sopnet.createNode("mega_process_asset")
-			node.parm("file").set(file)
+			node.parm("file").set(file_current)
 
 			fetch = ropnet.createNode("fetch")
-			fetch.parm("source").set( node.glob("rop_geometry")[0].path() )
+			fetch.parm("source").set( node.glob("rop_geometry*")[0].path() )
 
 			rop_merge.insertInput(0, fetch)
 

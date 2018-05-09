@@ -325,9 +325,13 @@ class MegaLoad(MegaInit):
 		asset_pack = asset_pack_items[asset_pack_number]
 
 		# eval asset parameter and pick corresponding value from index dict
-		asset_number = node.parm("asset").eval()
-		asset_items = node.parm("asset").menuItems()
-		asset = asset_items[asset_number]
+		try:
+			asset_number = node.parm("asset").eval()
+			asset_items = node.parm("asset").menuItems()
+			asset = asset_items[asset_number]
+		except IndexError:
+			node.parm("asset").set(0)
+			asset = asset_items[0]
 
 		lods_dict = self.assetsIndex[asset_pack]["assets"][asset]
 
@@ -368,19 +372,19 @@ class MegaLoad(MegaInit):
 			node.parm("asset_lod").set(0)
 			lod = asset_lod_labels[0]
 			node.parm("display_lod_level").set( len(display_lod_labels)-1 )
-			dispaly_lod = display_lod_labels[ len(display_lod_labels)-1 ]
+			display_lod = display_lod_labels[ len(display_lod_labels)-1 ]
 		
 		asset_pack_dict = self.assetsIndex[asset_pack]
 		lods_dict = asset_pack_dict["assets"][asset]
 
 		# determine asset and asset display paths
-		folder_path = asset_pack_dict["path"]
-		folder_path_expanded = hou.expandString(folder_path)
-		asset_path = os.path.join(folder_path, lods_dict[lod]).replace("\\", "/")
-		asset_display_path = os.path.join(folder_path, lods_dict[display_lod]).replace("\\", "/")
+		folder_path = asset_pack_dict["path"] # relative to $MEGA_LIB
+		folder_path_expanded = hou.expandString(folder_path) # absolute
+		asset_path = os.path.join(folder_path, lods_dict[lod])
+		asset_display_path = os.path.join(folder_path, lods_dict[display_lod])
 		if not relative_enable:
-			asset_path = asset_path.replace( "$MEGA_LIB", self.libPath, 1 )
-			asset_display_path = asset_display_path.replace( "$MEGA_LIB", self.libPath, 1 )			
+			asset_path = asset_path.replace( "$MEGA_LIB", self.libPath, 1 ).replace("\\", "/")
+			asset_display_path = asset_display_path.replace( "$MEGA_LIB", self.libPath, 1 ).replace("\\", "/")	
 
 		# determine asset lod number
 		asset_lod_number = "High" if lod == "High" else lod
@@ -390,13 +394,17 @@ class MegaLoad(MegaInit):
 		for key, value in tex_dict.iteritems():
 			# if doing normals, then select corresponding one
 			if isinstance(value, dict):
-				value = value[lod]
+				if lod == "High":
+					value = ""
+				else:
+					value = value[lod]
 
 			if value != "":
-				value = os.path.join(folder_path_expanded, value).replace("\\", "/")
+				#value = os.path.join(folder_path, value).replace("\\", "/")
+				value = os.path.join(folder_path, value)
 
-			if relative_enable:
-				value = value.replace(self.libPath, "$MEGA_LIB")
+			if not relative_enable:
+				value = value.replace("$MEGA_LIB", self.libPath, 1 ).replace("\\", "/")
 			
 			node.parm(key).set(value)
 

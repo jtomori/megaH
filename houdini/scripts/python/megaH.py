@@ -433,7 +433,7 @@ class MegaLoad(MegaInit):
 		asset_lod_number = node.parm("asset_lod").eval()
 		asset_lod_items = node.parm("asset_lod").menuItems()
 
-		newName = "{pack}_{asset}_{lod}_0".format(pack=asset_pack_items[asset_pack_number], asset=asset_items[asset_number], lod=asset_lod_items[asset_lod_number])
+		newName = "{pack}_{asset}_{lod}".format(pack=asset_pack_items[asset_pack_number], asset=asset_items[asset_number], lod=asset_lod_items[asset_lod_number])
 
 		if enabled and (currentName != newName):
 			node.setName(newName, unique_name=True)

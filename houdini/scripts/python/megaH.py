@@ -286,8 +286,8 @@ class MegaLoad(MegaInit):
 			node = hou.pwd()
 
 		keys = self.assetsIndex.keys() # get all keys form index dictionary
-		filter_mask = node.parm("filter").unexpandedString()
-		keys = fnmatch.filter(keys, filter_mask)
+		#filter_mask = node.parm("filter").unexpandedString()
+		#keys = fnmatch.filter(keys, filter_mask)
 		keys.sort()
 		keys = [str(x) for pair in zip(keys,keys) for x in pair] # duplicate all elements, for houdini menu
 		return keys

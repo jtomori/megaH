@@ -79,7 +79,7 @@ class MegaInit(object):
 		self.libHierarchyJson = os.path.join(self.libPath_3d, "index.json").replace("\\", "/") # a path to output file with indexed data (linux-style)
 		self.extMask = "*.bgeo.sc" # extension of files (converted) to be indexed
 		self.textures = ["Albedo", "Bump", "Cavity", "Displacement", "Gloss", "NormalBump", "Normal", "Roughness", "Specular", "Opacity", "Fuzz"] # list of all possible textures, there should be corresponding parameters on the node (with the same name, but first letter is lowercase)
-		self.shader = ""
+		self.shader = hou.getenv("MEGA_SHADER")
 
 class BuildAssetsHierarchy(MegaInit):
 	"""
@@ -282,12 +282,10 @@ class MegaLoad(MegaInit):
 		"""
 		returns a houdini-menu style list of asset packs
 		"""
-		if node == None:
+		if not node:
 			node = hou.pwd()
 
 		keys = self.assetsIndex.keys() # get all keys form index dictionary
-		#filter_mask = node.parm("filter").unexpandedString()
-		#keys = fnmatch.filter(keys, filter_mask)
 		keys.sort()
 		keys = [str(x) for pair in zip(keys,keys) for x in pair] # duplicate all elements, for houdini menu
 		return keys
@@ -296,7 +294,7 @@ class MegaLoad(MegaInit):
 		"""
 		returns a houdini-menu style list of assets of selected pack
 		"""
-		if node == None:
+		if not node:
 			node = hou.pwd()
 		
 		# eval asset_pack parameter and pick corresponding value from index dict
@@ -316,7 +314,7 @@ class MegaLoad(MegaInit):
 		"""
 		returns a houdini-menu style list of LODs for selected asset
 		"""
-		if node == None:
+		if not node:
 			node = hou.pwd()
 
 		# eval asset_pack parameter and pick corresponding value from index dict
@@ -437,6 +435,30 @@ class MegaLoad(MegaInit):
 
 		if enabled and (currentName != newName):
 			node.setName(newName, unique_name=True)
+
+	def setShader(self, node=None, shader=None):
+		"""
+		searches houdini project file for shaders which are prepared to work with megascans assets, if found, it modifies parameter values
+		"""
+		if not shader:
+			shader = self.shader
+		
+		if not node:
+			node = hou.pwd()
+
+		shaderInstances = []
+		try:
+			shaderInstances = hou.nodeType(hou.vopNodeTypeCategory(), shader).instances()
+		except AttributeError:
+			log.debug("Specified shader '{}' not found, check environment variable MEGA_SHADER.".format(shader))
+
+
+		if len(shaderInstances) > 0:
+			shader = shaderInstances[0].path()
+		else:
+			shader = "--- shader not found ---"
+
+		node.parm("shader_path").set(shader)
 
 	def apply(self):
 		"""

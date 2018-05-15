@@ -163,10 +163,10 @@ class MegaView(QtWidgets.QWidget):
 
         # cleanup all buttons
         for group in self.grid_layout[biotope].parentWidget().findChildren(QtWidgets.QPushButton):
-            self.grid_layout[biotope].removeWidget(group)
+            # self.grid_layout[biotope].removeWidget(group)
             group.hide()
         for group in self.search_grid_layout.parentWidget().findChildren(QtWidgets.QPushButton):
-            self.search_grid_layout.removeWidget(group)
+            # self.search_grid_layout.removeWidget(group)
             group.hide()
 
         spaces = self.grid_layout[biotope].spacing() * row
@@ -279,7 +279,6 @@ class MegaView(QtWidgets.QWidget):
             packages = megaNode.parm("asset_pack").menuItems()
             package = megaNode.parm("asset_pack").eval()
             assets = megaNode.parm("asset").menuItems()
-            # If node points to new package, picture will be show. If not, node is skipped assuming it is part of multiple assets in pack.
             if len(assets) == 1:
                 # pack with single asset, image is always shown
                 self.addNetworkImage(packages[package], megaNode.path())

@@ -303,9 +303,10 @@ class MegaLoad(MegaInit):
 		asset_pack = asset_pack_items[asset_pack_number]
 
 		keys = self.assetsIndex[asset_pack]["assets"].keys()
-		# keys = [int(k) for k in keys]
+		zerolength = len(keys[0])
+		keys = [int(k) for k in keys]
 		keys.sort()
-		# keys = [str(k) for k in keys]
+		keys = [str(k).zfill(zerolength) for k in keys]
 
 		keys = [str(x) for pair in zip(keys,keys) for x in pair] # duplicate all elements, for houdini menu
 		return keys

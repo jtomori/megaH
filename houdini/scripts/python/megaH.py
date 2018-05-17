@@ -303,9 +303,10 @@ class MegaLoad(MegaInit):
 		asset_pack = asset_pack_items[asset_pack_number]
 
 		keys = self.assetsIndex[asset_pack]["assets"].keys()
+		zerolength = len(keys[0])
 		keys = [int(k) for k in keys]
 		keys.sort()
-		keys = [str(k) for k in keys]		
+		keys = [str(k).zfill(zerolength) for k in keys]
 
 		keys = [str(x) for pair in zip(keys,keys) for x in pair] # duplicate all elements, for houdini menu
 		return keys
@@ -414,6 +415,7 @@ class MegaLoad(MegaInit):
 	def autoRename(self):
 		"""
 		checks checkbox in asset, if set, it will rename current node by asset name and LOD, it should be bound to callback of a load button (which might by hidden)
+		it also always (regardless of rename_node parameter setting) updates node's comment
 		"""
 		node = hou.pwd()
 		currentName = node.name()
@@ -432,6 +434,8 @@ class MegaLoad(MegaInit):
 		asset_lod_items = node.parm("asset_lod").menuItems()
 
 		newName = "{pack}_{asset}_{lod}".format(pack=asset_pack_items[asset_pack_number], asset=asset_items[asset_number], lod=asset_lod_items[asset_lod_number])
+
+		node.setComment(newName)
 
 		if enabled and (currentName != newName):
 			node.setName(newName, unique_name=True)

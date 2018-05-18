@@ -7,7 +7,12 @@ import logging
 import fnmatch
 
 # logging config
-logging.basicConfig(level=logging.DEBUG) # set to logging.INFO to disable DEBUG logs
+enable_logging = False
+
+if enable_logging:
+	logging.basicConfig(level=logging.DEBUG)
+else:
+	logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
 class Utils(object):
@@ -379,11 +384,11 @@ class MegaLoad(MegaInit):
 		# determine asset and asset display paths
 		folder_path = asset_pack_dict["path"] # relative to $MEGA_LIB
 		folder_path_expanded = hou.expandString(folder_path) # absolute
-		asset_path = os.path.join(folder_path, lods_dict[lod])
-		asset_display_path = os.path.join(folder_path, lods_dict[display_lod])
+		asset_path = os.path.join(folder_path, lods_dict[lod]).replace("\\", "/")
+		asset_display_path = os.path.join(folder_path, lods_dict[display_lod]).replace("\\", "/")
 		if not relative_enable:
 			asset_path = asset_path.replace( "$MEGA_LIB", self.libPath, 1 ).replace("\\", "/")
-			asset_display_path = asset_display_path.replace( "$MEGA_LIB", self.libPath, 1 ).replace("\\", "/")	
+			asset_display_path = asset_display_path.replace( "$MEGA_LIB", self.libPath, 1 ).replace("\\", "/")
 
 		# determine asset lod number
 		asset_lod_number = "High" if lod == "High" else lod
@@ -399,8 +404,7 @@ class MegaLoad(MegaInit):
 					value = value[lod]
 
 			if value != "":
-				#value = os.path.join(folder_path, value).replace("\\", "/")
-				value = os.path.join(folder_path, value)
+				value = os.path.join(folder_path, value).replace("\\", "/")
 
 			if not relative_enable:
 				value = value.replace("$MEGA_LIB", self.libPath, 1 ).replace("\\", "/")

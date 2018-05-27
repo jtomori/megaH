@@ -1,33 +1,28 @@
-import os, math, glob, hou, json
+import os, math, glob, hou, json, megaH
 
 from PySide2 import QtWidgets
 from PySide2 import QtGui
 from PySide2 import QtCore
 
-class MegaData():
-    def __init__(self):
-        self.libPath = hou.getenv("MEGA_LIB") # a path pointing to root folder with assets to be indexed
-        self.libPath = os.path.normpath(self.libPath) # normalize it just to be sure
-        self.libPath_3d = os.path.join(self.libPath, "3d").replace("\\", "/") # append 3d folder which contains actual geometry and convert to linux-style
-        self.libHierarchyJson = os.path.join(self.libPath_3d, "index.json").replace("\\", "/") # a path to output file with indexed data (linux-style)
-        self.libBiotopesJson = os.path.join(self.libPath_3d, "biotopes.json").replace("\\", "/") # a path to output file with indexed data (linux-style)
-
-        with open(self.libHierarchyJson) as data:
-            self.assetsIndex = json.load(data)
-
-        with open(self.libBiotopesJson) as data:
-            self.biotopesIndex = json.load(data)
-            
-        self.megaLoad = 'jt_megaLoad_v3'
-
 class MegaView(QtWidgets.QWidget):
     def __init__(self):
         QtWidgets.QWidget.__init__(self)
-        self.megadata = MegaData() # create instance of MegaData class
-        self.packs = self.megadata.assetsIndex.keys() # get list of packs
+        self.megadata = megaH.MegaInit() # create instance of MegaData class
+
+        # load json data
+        with open(self.megadata.libHierarchyJson) as data:
+            self.assetsIndex = json.load(data)
+        with open(self.megadata.libBiotopesJson) as data:
+            self.biotopesIndex = json.load(data)
+
+        self.packs = self.assetsIndex.keys() # get list of packs
         self.packs.sort()
         self.packs = [x.encode("ascii") for x in self.packs]
-        self.biotopes = self.megadata.biotopesIndex.keys() # get list of biotopes
+
+        self.processMiscPacks()
+        self.removeEmptyBiotopes()
+
+        self.biotopes = self.biotopesIndex.keys() # get list of biotopes
         self.biotopes = [x.encode("ascii") for x in self.biotopes]
 
         self.root_layout = QtWidgets.QVBoxLayout(self) # set root_layout as layout for this class
@@ -78,6 +73,30 @@ class MegaView(QtWidgets.QWidget):
         # Apply Houdini styling to the main widget
         self.setProperty("houdiniStyle", True)
 
+    # if pack is not present in any biotope, assign it to misc
+    def processMiscPacks(self):
+        self.miscPacks = []
+        for pack in self.packs:
+            packCategorized = False
+            for biotope in self.biotopesIndex.keys():
+                if pack in self.biotopesIndex[biotope]:
+                    packCategorized = True
+
+            if packCategorized is False:
+                self.miscPacks.append(pack)
+                self.biotopesIndex['misc'] = self.miscPacks
+
+    # remove biotopes that does not contain any available pack
+    def removeEmptyBiotopes(self):
+        for biotope in self.biotopesIndex.keys():
+            keepBiotope = False
+            for pack in self.biotopesIndex[biotope]:
+                if pack in self.packs:
+                    keepBiotope = True
+
+            if keepBiotope is False:
+                del self.biotopesIndex[biotope]
+
     def searchSwitch(self):
         searchText = self.search.text()
         if searchText == '':
@@ -106,8 +125,8 @@ class MegaView(QtWidgets.QWidget):
             self.button[pack].clicked.connect(lambda a=packname: self.addMegaHda(a))
             self.button[pack].setToolTip(packname)
             
-            pack_path = self.megadata.assetsIndex[packname]["path"]
-            preview_image = self.megadata.assetsIndex[packname]["preview_image"]
+            pack_path = self.assetsIndex[packname]["path"]
+            preview_image = self.assetsIndex[packname]["preview_image"]
             image_path = hou.expandString(os.path.join(pack_path, preview_image))
             img = QtGui.QPixmap(image_path)
             icon = QtGui.QIcon(img)
@@ -176,7 +195,7 @@ class MegaView(QtWidgets.QWidget):
             i = 0
             for pack in xrange(len(self.packs)):
                 packname = self.packs[pack]
-                if packname in self.megadata.biotopesIndex[biotopename]:
+                if packname in self.biotopesIndex[biotopename]:
                     x = i % row
                     y = int(math.floor(i / row))
 
@@ -212,7 +231,7 @@ class MegaView(QtWidgets.QWidget):
         parentNode = editor.pwd()
         path = parentNode.path()
 
-        assets = self.megadata.assetsIndex[pack]["assets"].keys() # get assets for current pack
+        assets = self.assetsIndex[pack]["assets"].keys() # get assets for current pack
         assets = [x.encode("ascii") for x in assets]
         meganodes = []
 
@@ -224,6 +243,7 @@ class MegaView(QtWidgets.QWidget):
 
         # for every asset in assets create megaLoad node and set its parms
         for asset in xrange(len(assets)):
+            print 'processing asset' + str(asset)
             meganode = hou.node(path).createNode(self.megadata.megaLoad)
             if asset == 0:
                 meganode.moveToGoodPosition(relative_to_inputs=True, move_inputs=False, move_outputs=False, move_unconnected=False)
@@ -295,8 +315,8 @@ class MegaView(QtWidgets.QWidget):
     def addNetworkImage(self, package, pinNodePath):
         editor = hou.ui.paneTabOfType(hou.paneTabType.NetworkEditor)
         
-        pack_path = self.megadata.assetsIndex[package]["path"]
-        preview_image = self.megadata.assetsIndex[package]["preview_image"]
+        pack_path = self.assetsIndex[package]["path"]
+        preview_image = self.assetsIndex[package]["preview_image"]
         imagepath = hou.expandString(os.path.join(pack_path, preview_image))
         
         curImages = editor.backgroundImages()

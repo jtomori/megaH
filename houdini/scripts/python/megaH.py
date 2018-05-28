@@ -82,9 +82,11 @@ class MegaInit(object):
 		self.libPath = os.path.normpath(self.libPath) # normalize it just to be sure
 		self.libPath_3d = os.path.join(self.libPath, "3d").replace("\\", "/") # append 3d folder which contains actual geometry and convert to linux-style
 		self.libHierarchyJson = os.path.join(self.libPath_3d, "index.json").replace("\\", "/") # a path to output file with indexed data (linux-style)
+		self.libBiotopesJson = os.path.join(self.libPath_3d, "biotopes.json").replace("\\", "/") # a path to output file with indexed data (linux-style)
 		self.extMask = "*.bgeo.sc" # extension of files (converted) to be indexed
 		self.textures = ["Albedo", "Bump", "Cavity", "Displacement", "Gloss", "NormalBump", "Normal", "Roughness", "Specular", "Opacity", "Fuzz"] # list of all possible textures, there should be corresponding parameters on the node (with the same name, but first letter is lowercase)
 		self.shader = hou.getenv("MEGA_SHADER")
+		self.megaLoad = 'jt_megaLoad_v3'
 
 class BuildAssetsHierarchy(MegaInit):
 	"""

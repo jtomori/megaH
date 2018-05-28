@@ -7,7 +7,12 @@ import logging
 import fnmatch
 
 # logging config
-logging.basicConfig(level=logging.DEBUG) # set to logging.INFO to disable DEBUG logs
+enable_logging = False
+
+if enable_logging:
+	logging.basicConfig(level=logging.DEBUG)
+else:
+	logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
 class Utils(object):
@@ -206,7 +211,7 @@ class BuildAssetsHierarchy(MegaInit):
 			files = Utils.getFilesByMask(path, pattern)
 			picked_file = ""
 
-			order = ["jpg", "tif", "png", "exr", "tx", "rat"] # ascending priority list of extensions to be picked
+			order = ["jpg", "tif", "png", "exr", "rat"] # ascending priority list of extensions to be picked
 			# process normals differently from other textures
 			if tex == "Normal" and len(files) > 1:
 				picked_file = {}
@@ -220,12 +225,12 @@ class BuildAssetsHierarchy(MegaInit):
 				
 				# our values can be lists (in case there are normal maps with multiple extensions), bellow code handles it
 				for lod, files_list in picked_file.iteritems():
-					if len(lod) == 1:
+					if len(files_list) == 1:
 						picked_file[lod] = files_list[0]
-					elif len(lod) > 1:
+					elif len(files_list) > 1:
 						# convert list of found texture candidates to the most suitable one :)
 						extensions = []
-						for file in lod:
+						for file in files_list:
 							extensions.append( file.split(".")[-1] )
 						
 						idx = 0
@@ -381,11 +386,11 @@ class MegaLoad(MegaInit):
 		# determine asset and asset display paths
 		folder_path = asset_pack_dict["path"] # relative to $MEGA_LIB
 		folder_path_expanded = hou.expandString(folder_path) # absolute
-		asset_path = os.path.join(folder_path, lods_dict[lod])
-		asset_display_path = os.path.join(folder_path, lods_dict[display_lod])
+		asset_path = os.path.join(folder_path, lods_dict[lod]).replace("\\", "/")
+		asset_display_path = os.path.join(folder_path, lods_dict[display_lod]).replace("\\", "/")
 		if not relative_enable:
 			asset_path = asset_path.replace( "$MEGA_LIB", self.libPath, 1 ).replace("\\", "/")
-			asset_display_path = asset_display_path.replace( "$MEGA_LIB", self.libPath, 1 ).replace("\\", "/")	
+			asset_display_path = asset_display_path.replace( "$MEGA_LIB", self.libPath, 1 ).replace("\\", "/")
 
 		# determine asset lod number
 		asset_lod_number = "High" if lod == "High" else lod
@@ -401,8 +406,7 @@ class MegaLoad(MegaInit):
 					value = value[lod]
 
 			if value != "":
-				#value = os.path.join(folder_path, value).replace("\\", "/")
-				value = os.path.join(folder_path, value)
+				value = os.path.join(folder_path, value).replace("\\", "/")
 
 			if not relative_enable:
 				value = value.replace("$MEGA_LIB", self.libPath, 1 ).replace("\\", "/")
@@ -417,6 +421,7 @@ class MegaLoad(MegaInit):
 	def autoRename(self):
 		"""
 		checks checkbox in asset, if set, it will rename current node by asset name and LOD, it should be bound to callback of a load button (which might by hidden)
+		it also always (regardless of rename_node parameter setting) updates node's comment
 		"""
 		node = hou.pwd()
 		currentName = node.name()
@@ -435,6 +440,8 @@ class MegaLoad(MegaInit):
 		asset_lod_items = node.parm("asset_lod").menuItems()
 
 		newName = "{pack}_{asset}_{lod}".format(pack=asset_pack_items[asset_pack_number], asset=asset_items[asset_number], lod=asset_lod_items[asset_lod_number])
+
+		node.setComment(newName)
 
 		if enabled and (currentName != newName):
 			node.setName(newName, unique_name=True)

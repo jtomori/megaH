@@ -209,7 +209,7 @@ class BuildAssetsHierarchy(MegaInit):
 			files = Utils.getFilesByMask(path, pattern)
 			picked_file = ""
 
-			order = ["jpg", "tif", "png", "exr", "tx", "rat"] # ascending priority list of extensions to be picked
+			order = ["jpg", "tif", "png", "exr", "rat"] # ascending priority list of extensions to be picked
 			# process normals differently from other textures
 			if tex == "Normal" and len(files) > 1:
 				picked_file = {}
@@ -223,12 +223,12 @@ class BuildAssetsHierarchy(MegaInit):
 				
 				# our values can be lists (in case there are normal maps with multiple extensions), bellow code handles it
 				for lod, files_list in picked_file.iteritems():
-					if len(lod) == 1:
+					if len(files_list) == 1:
 						picked_file[lod] = files_list[0]
-					elif len(lod) > 1:
+					elif len(files_list) > 1:
 						# convert list of found texture candidates to the most suitable one :)
 						extensions = []
-						for file in lod:
+						for file in files_list:
 							extensions.append( file.split(".")[-1] )
 						
 						idx = 0

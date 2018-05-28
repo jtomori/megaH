@@ -1,18 +1,19 @@
-import os, math, glob, hou, json, megaH
+import os, math, glob, hou, json
+from megaH import MegaInit
 
 from PySide2 import QtWidgets
 from PySide2 import QtGui
 from PySide2 import QtCore
 
-class MegaView(QtWidgets.QWidget):
+class MegaView(QtWidgets.QWidget, MegaInit):
     def __init__(self):
         QtWidgets.QWidget.__init__(self)
-        self.megadata = megaH.MegaInit() # create instance of MegaData class
+        MegaInit.__init__(self)
 
         # load json data
-        with open(self.megadata.libHierarchyJson) as data:
+        with open(self.libHierarchyJson) as data:
             self.assetsIndex = json.load(data)
-        with open(self.megadata.libBiotopesJson) as data:
+        with open(self.libBiotopesJson) as data:
             self.biotopesIndex = json.load(data)
 
         self.packs = self.assetsIndex.keys() # get list of packs
@@ -244,7 +245,7 @@ class MegaView(QtWidgets.QWidget):
         # for every asset in assets create megaLoad node and set its parms
         for asset in xrange(len(assets)):
             print 'processing asset' + str(asset)
-            meganode = hou.node(path).createNode(self.megadata.megaLoad)
+            meganode = hou.node(path).createNode(self.megaLoad)
             if asset == 0:
                 meganode.moveToGoodPosition(relative_to_inputs=True, move_inputs=False, move_outputs=False, move_unconnected=False)
                 position = meganode.position()
@@ -286,7 +287,7 @@ class MegaView(QtWidgets.QWidget):
     def showNetworkImages(self):
         editor = hou.ui.paneTabOfType(hou.paneTabType.NetworkEditor)
         parentNode = editor.pwd()
-        megaType = hou.nodeType(hou.sopNodeTypeCategory(), self.megadata.megaLoad)
+        megaType = hou.nodeType(hou.sopNodeTypeCategory(), self.megaLoad)
         allMegaNodes = megaType.instances() # finds all megaLoad nodes in project
         megaNodes = []
         # runs throuhg megaLoad nodes and keeps only those, that are present in current path of network editor
@@ -335,7 +336,7 @@ class MegaView(QtWidgets.QWidget):
     # highlights packs that already have been added to project
     def buttonBorder(self):
         # get all megaLoad nodes in project
-        megaType = hou.nodeType(hou.sopNodeTypeCategory(), self.megadata.megaLoad)
+        megaType = hou.nodeType(hou.sopNodeTypeCategory(), self.megaLoad)
         megaNodes = megaType.instances()
 
         usedPkgs = []

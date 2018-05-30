@@ -259,6 +259,10 @@ class BuildAssetsHierarchy(MegaInit):
 				else:
 					picked_file = ""
 
+			# this manages the case, when the textures are pre-converted to mipmapped formats and there is only one key in the dict for normal / normalBump tex
+			if len(picked_file) == 1 and isinstance(picked_file, dict):
+				picked_file = picked_file[ picked_file.keys()[0] ]
+
 			tex_dict[key] = picked_file
 		
 		# if normalBump texture does not exist, then use universal normal
@@ -310,6 +314,7 @@ class MegaLoad(MegaInit):
 		asset_pack = asset_pack_items[asset_pack_number]
 
 		keys = self.assetsIndex[asset_pack]["assets"].keys()
+		keys.sort()
 		zerolength = len(keys[0])
 		keys = [int(k) for k in keys]
 		keys.sort()
@@ -516,7 +521,11 @@ class ProcessAssets(object):
 		except AttributeError:
 			raise AttributeError("'file', 'ext' or 'asset_number' parameter not found")
 		
-		out_path = in_path.replace(in_ext, extension)
+		out_path = in_path
+		in_ext_list = in_ext.split(" ")
+		for ext_current in in_ext_list:
+			out_path = out_path.replace(ext_current, extension)
+
 		out_path = out_path.split("_")
 		out_path.insert(-1, asset_number)
 		out_path = "_".join(out_path)
@@ -549,7 +558,12 @@ class ProcessAssets(object):
 		ropnet = node.glob("ropnet")[0]
 		rop_merge = ropnet.glob("merge_render_all")[0]
 		
-		files = Utils.getFilesRecursivelyByMask(root_path, "*"+ext)
+		ext_list = ext.split(" ")
+		files = []
+		for ext_current in ext_list:
+			files.append( Utils.getFilesRecursivelyByMask(root_path, "*"+ext_current) )
+		files = Utils.flatten(files)
+
 		process_nodes = []
 		fetch_nodes = []
 

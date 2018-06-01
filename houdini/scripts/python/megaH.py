@@ -310,6 +310,7 @@ class MegaLoad(MegaInit):
 		asset_pack = asset_pack_items[asset_pack_number]
 
 		keys = self.assetsIndex[asset_pack]["assets"].keys()
+		keys.sort()
 		zerolength = len(keys[0])
 		keys = [int(k) for k in keys]
 		keys.sort()
@@ -579,3 +580,103 @@ class ProcessAssets(object):
 
 		for node in nodes:
 			node.destroy()
+
+class CheckAssets(MegaInit):
+	"""
+	class implementing functionality of mega check digital asset
+	"""
+	def __init__(self, force_recache=False):
+		super(CheckAssets, self).__init__() # call parent class constructor
+
+		# cache loaded index into hou.session, if re-indexed, it needs to be re-created
+		if not hasattr(hou.session, "mega_index") or force_recache:
+			log.debug("Library index is not loaded into the session, loading...")
+			with open(self.libHierarchyJson) as data:
+				parsed = json.load(data)
+				setattr(hou.session, "mega_index", parsed)
+		else:
+			log.debug("Using cached library index")
+		
+		self.assetsIndex = hou.session.mega_index
+
+	def createNodes(self, node):
+		node.allowEditingOfContents()
+		asset_packs = self.assetsIndex.keys()
+		asset_packs.sort()
+		packNodes = []
+		
+		for asset_pack in asset_packs:
+			assets = self.assetsIndex[asset_pack]["assets"].keys()
+			assets.sort()
+			zerolength = len(assets[0])
+			assets = [int(k) for k in assets]
+			assets.sort()
+			assets = [str(k).zfill(zerolength) for k in assets]
+			
+			mergeLodNodes = []
+			transformWidthNodes = []
+
+			for asset in assets:
+				lods = self.assetsIndex[asset_pack]["assets"][asset].keys()
+				lods.sort()
+				attribHeightNodes = []
+				transformHeightNodes = []
+
+				for lod in lods:
+					folder_path = self.assetsIndex[asset_pack]["path"]
+					asset_name = self.assetsIndex[asset_pack]["assets"][asset][lod]
+					asset_path = os.path.join(folder_path, asset_name)
+
+					fileNode = node.createNode('file')
+					fileNode.parm('file').set(asset_path)
+
+					attribHeightNode = node.createNode('attribwrangle')
+					attribHeightNode.setInput(0, fileNode)
+					attribHeightNode.parm('class').set(0)
+					attribHeightNode.parm('snippet').set('f@height = getbbox_size("opinput:0").y * chf("../height_spacing");')
+
+					transformHeightNode = node.createNode('xform')
+					transformHeightNode.setInput(0, attribHeightNode)
+					transformHeightNodes.append(transformHeightNode)
+					if lods.index(lod) != 0:
+						transformHeightNode.parm('ty').setExpression('detail("' + transformHeightNodes[0].path() + '", "height", 0) * ' + str(lods.index(lod)))
+
+				mergeLodNode = node.createNode('merge')
+				for i in xrange(len(transformHeightNodes)):
+					mergeLodNode.setInput(i, transformHeightNodes[i])
+				mergeLodNodes.append(mergeLodNode)
+
+				absoluteScaleNode = node.createNode('attribwrangle')
+				absoluteScaleNode.setInput(0, mergeLodNode)
+				absoluteScaleNode.parm('class').set(2)
+				absoluteScaleNode.parm('snippet').set('vector orig_size = getbbox_size(0);\nvector abs_scale_factor = set( 1 / orig_size.x, 1 / orig_size.y, 1 / orig_size.z );\nmatrix3 scale_mtx = ident();\nscale_mtx *= abs_scale_factor.y;\n@P *= scale_mtx;')
+
+				attribWidthNode = node.createNode('attribwrangle')
+				attribWidthNode.setInput(0, absoluteScaleNode)
+				attribWidthNode.parm('class').set(0)
+				attribWidthNode.parm('snippet').set('f@width = getbbox_size("opinput:0").x * chf("../width_spacing");')
+				
+				transformWidthNode = node.createNode('xform')
+				transformWidthNode.setInput(0, attribWidthNode)
+				transformWidthNodes.append(transformWidthNode)
+				if assets.index(asset) != 0:
+					transformWidthNode.parm('tx').setExpression('ch("' + lastTransform.path() + '/tx") + detail("' + lastTransform.path() + '", "width", 0)')
+				lastTransform = transformWidthNode
+			
+			mergeAssetNode = node.createNode('merge')
+			for i in xrange(len(transformWidthNodes)):
+				mergeAssetNode.setInput(i, transformWidthNodes[i])
+
+			attribTagNode = node.createNode('attribwrangle')
+			attribTagNode.setInput(0, mergeAssetNode)
+			attribTagNode.parm('class').set(0)
+			attribTagNode.parm('snippet').set('s@pack = "' + asset_pack + '";')
+			packNodes.append(attribTagNode)
+
+		switchNode = node.createNode('switch')
+		switchNode.parm('input').setExpression('ch("../pack")')
+		switchNode.setDisplayFlag(True)
+		for i in xrange(len(packNodes)):
+			switchNode.setInput(i, packNodes[i])
+
+		node.layoutChildren()

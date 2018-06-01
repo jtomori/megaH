@@ -7,7 +7,7 @@ import logging
 import fnmatch
 
 # logging config
-enable_logging = False
+enable_logging = True
 
 if enable_logging:
 	logging.basicConfig(level=logging.DEBUG)

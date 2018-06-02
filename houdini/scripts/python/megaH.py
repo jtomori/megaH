@@ -600,6 +600,9 @@ class CheckAssets(MegaInit):
 		self.assetsIndex = hou.session.mega_index
 
 	def createNodes(self, node):
+		"""
+		generates nodes for each pack, aligning lods horizontally and assets vertically in single grid view
+		"""
 		node.allowEditingOfContents()
 		asset_packs = self.assetsIndex.keys()
 		asset_packs.sort()
@@ -627,52 +630,75 @@ class CheckAssets(MegaInit):
 					asset_name = self.assetsIndex[asset_pack]["assets"][asset][lod]
 					asset_path = os.path.join(folder_path, asset_name)
 
+					# file node loads geometry
 					fileNode = node.createNode('file')
+					fileNode.setName('file_' + lod + '_', unique_name=True)
 					fileNode.parm('file').set(asset_path)
 
-					attribHeightNode = node.createNode('attribwrangle')
-					attribHeightNode.setInput(0, fileNode)
-					attribHeightNode.parm('class').set(0)
-					attribHeightNode.parm('snippet').set('f@height = getbbox_size("opinput:0").y * chf("../height_spacing");')
+					if lods.index(lod) == 0:
+						# attribwrangle_height node calculates height based on bboxsize.y
+						attribHeightNode = node.createNode('attribwrangle')
+						attribHeightNode.setName('attribwrangle_height', unique_name=True)
+						attribHeightNode.setInput(0, fileNode)
+						attribHeightNode.parm('class').set(0)
+						attribHeightNode.parm('snippet').set('f@height = getbbox_size("opinput:0").y * chf("../height_spacing");')
 
+					# transform_height node transforms currnet lod based on calculated height and lod index
 					transformHeightNode = node.createNode('xform')
-					transformHeightNode.setInput(0, attribHeightNode)
+					transformHeightNode.setName('transform_height', unique_name=True)
+					if lods.index(lod) == 0:
+						transformHeightNode.setInput(0, attribHeightNode)
+					else:
+						transformHeightNode.setInput(0, fileNode)
 					transformHeightNodes.append(transformHeightNode)
 					if lods.index(lod) != 0:
 						transformHeightNode.parm('ty').setExpression('detail("' + transformHeightNodes[0].path() + '", "height", 0) * ' + str(lods.index(lod)))
 
+				# merge_lods node merges all lods of current asset
 				mergeLodNode = node.createNode('merge')
+				mergeLodNode.setName('merge_lods_' + asset + '_', unique_name=True)
 				for i in xrange(len(transformHeightNodes)):
 					mergeLodNode.setInput(i, transformHeightNodes[i])
 				mergeLodNodes.append(mergeLodNode)
 
+				# attribwrangle_absolute_scale node applies absolute transformation to current asset (1m in height) and centers it on x axis
 				absoluteScaleNode = node.createNode('attribwrangle')
+				absoluteScaleNode.setName('attribwrangle_absolute_scale', unique_name=True)
 				absoluteScaleNode.setInput(0, mergeLodNode)
 				absoluteScaleNode.parm('class').set(2)
-				absoluteScaleNode.parm('snippet').set('vector orig_size = getbbox_size(0);\nvector abs_scale_factor = set( 1 / orig_size.x, 1 / orig_size.y, 1 / orig_size.z );\nmatrix3 scale_mtx = ident();\nscale_mtx *= abs_scale_factor.y;\n@P *= scale_mtx;')
+				absoluteScaleNode.parm('snippet').set('vector orig_size = getbbox_size(0);\nvector abs_scale_factor = set( 1 / orig_size.x, 1 / orig_size.y, 1 / orig_size.z );\nmatrix3 scale_mtx = ident();\nscale_mtx *= abs_scale_factor.y;\n@P *= scale_mtx;\nvector pivot = getbbox_center("opinput:0");\npivot *= scale_mtx;\n@P.x -= pivot.x;')
 
+				# attribwrangle_width node calculates width based on bboxsize.x
 				attribWidthNode = node.createNode('attribwrangle')
+				attribWidthNode.setName('attribwrangle_width', unique_name=True)
 				attribWidthNode.setInput(0, absoluteScaleNode)
 				attribWidthNode.parm('class').set(0)
 				attribWidthNode.parm('snippet').set('f@width = getbbox_size("opinput:0").x * chf("../width_spacing");')
 				
+				# transform_width node transforms currnet asset using tx value from last transform_width node and width of current asset
 				transformWidthNode = node.createNode('xform')
+				transformWidthNode.setName('transform_width', unique_name=True)
 				transformWidthNode.setInput(0, attribWidthNode)
 				transformWidthNodes.append(transformWidthNode)
 				if assets.index(asset) != 0:
-					transformWidthNode.parm('tx').setExpression('ch("' + lastTransform.path() + '/tx") + detail("' + lastTransform.path() + '", "width", 0)')
+					transformWidthNode.parm('tx').setExpression('ch("' + lastTransform.path() + '/tx") + detail("' + lastTransform.path() + '", "width", 0) / 2 + detail("0", "width", 0) / 2')
 				lastTransform = transformWidthNode
 			
+			# merge_assets node merges all assets to one pack
 			mergeAssetNode = node.createNode('merge')
+			mergeAssetNode.setName('merge_assets_' + asset_pack, unique_name=True)
 			for i in xrange(len(transformWidthNodes)):
 				mergeAssetNode.setInput(i, transformWidthNodes[i])
 
+			# attribwrangle_tag node adds name of the pack to detail attribute
 			attribTagNode = node.createNode('attribwrangle')
+			attribTagNode.setName('attribwrangle_tag_' + asset_pack, unique_name=True)
 			attribTagNode.setInput(0, mergeAssetNode)
 			attribTagNode.parm('class').set(0)
 			attribTagNode.parm('snippet').set('s@pack = "' + asset_pack + '";')
 			packNodes.append(attribTagNode)
 
+		# switch node enables switching between all packs
 		switchNode = node.createNode('switch')
 		switchNode.parm('input').setExpression('ch("../pack")')
 		switchNode.setDisplayFlag(True)
@@ -680,3 +706,11 @@ class CheckAssets(MegaInit):
 			switchNode.setInput(i, packNodes[i])
 
 		node.layoutChildren()
+		node.parm('pack').setExpression('@Frame - 1')
+
+	def cleanNodes(self, node):
+		"""
+		deletes generated child nodes
+		"""
+		for deleteNode in node.children():
+			deleteNode.destroy()

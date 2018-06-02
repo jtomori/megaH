@@ -487,39 +487,29 @@ class ProcessAssets(object):
 	a class managing cracking process
 	"""
 	@staticmethod
-	def convertInFilePath(node):
-		"""
-		gets a path, extension from param from parent and replaces extension
-		this function is not used anymore
-		"""
-		extension = ".bgeo.sc"
-		parent_node = node.parent()
-
-		try:
-			in_path = parent_node.parm("file").unexpandedString()
-			in_ext = parent_node.parent().parent().parm("ext").eval()
-		except AttributeError:
-			raise AttributeError("'file' or 'ext' parameter not found")
-		
-		out_path = in_path.replace(in_ext, extension)
-		out_path = hou.expandString(out_path)
-
-		return out_path
-
-	@staticmethod
 	def convertInFilePathCracked(node):
 		"""
 		gets a path, extension from param from parent and replaces extension, prepends LOD with current asset number
 		"""
+		if not node:
+			node = hou.pwd()
+
 		extension = ".bgeo.sc"
 		parent_node = node.parent()
 
 		try:
-			in_path = parent_node.parm("file").unexpandedString()
-			in_ext = parent_node.parent().parent().parm("ext").eval()
+			in_path = parent_node.parm("file").eval()
 			asset_number = node.parm("asset_number").eval()
 		except AttributeError:
-			raise AttributeError("'file', 'ext' or 'asset_number' parameter not found")
+			raise AttributeError("'file' or 'asset_number' parameter not found")
+
+		try:
+			in_ext = parent_node.parent().parent().parm("ext").eval()
+		except AttributeError:
+			try:
+				in_ext = parent_node.parent().parm("ext").eval()
+			except AttributeError:
+				raise AttributeError("'ext' parameter not found")
 		
 		out_path = in_path
 		in_ext_list = in_ext.split(" ")
@@ -529,6 +519,8 @@ class ProcessAssets(object):
 		out_path = out_path.split("_")
 		out_path.insert(-1, asset_number)
 		out_path = "_".join(out_path)
+
+		log.debug( "frame: {}, file: {}".format( int( hou.frame() ), out_path ) )
 
 		return out_path.replace("\\", "/")
 
@@ -548,11 +540,14 @@ class ProcessAssets(object):
 		"""
 		generates child Process Asset SOP nodes and sets parameter, also creates Fetch ROPs pointing to them and merges them together
 		"""
+		if not node:
+			node = hou.pwd()
+
 		try:
 			root_path = node.parm("folder").eval()
 			ext = node.parm("ext").eval()
 		except AttributeError:
-			raise AttributeError("Specified node has no 'folder' parameter")
+			raise AttributeError("Specified node has no 'folder' and 'ext' parameters")
 		
 		sopnet = node.glob("sopnet")[0]
 		ropnet = node.glob("ropnet")[0]
@@ -587,9 +582,230 @@ class ProcessAssets(object):
 		"""
 		deletes generated child nodes
 		"""
+		if not node:
+			node = hou.pwd()
+
 		sopnet = node.glob("sopnet")[0]
 		ropnet = node.glob("ropnet")[0]
 		nodes = sopnet.glob("*") + ropnet.glob("* ^merge_render_all")
 
 		for node in nodes:
 			node.destroy()
+
+	@staticmethod
+	def cacheAssetsList(node, debug=True):
+		"""
+		caches a list of files into hou.session, returns cached object
+		"""
+		if not node:
+			node = hou.pwd()
+
+		try:
+			root_path = node.parm("folder").eval()
+			ext = node.parm("ext").eval()
+		except AttributeError:
+			raise AttributeError("Specified node has no 'folder' and 'ext' parameters")
+		
+		if not hasattr(hou.session, "files_list") or not hasattr(hou.session, "files_list_root") or hou.session.files_list_root != root_path:
+			if debug:
+				log.debug("Files list is not cached into the session or is outdated, loading...")
+
+			ext_list = ext.split(" ")
+			files = []
+			for ext_current in ext_list:
+				files.append( Utils.getFilesRecursivelyByMask(root_path, "*"+ext_current) )
+			files = Utils.flatten(files)
+
+			setattr(hou.session, "files_list", files)
+			setattr(hou.session, "files_list_root", root_path)
+		else:
+			if debug:
+				log.debug("Using cached files list")
+		
+		return hou.session.files_list
+
+	@staticmethod
+	def setTimelineRange(node):
+		"""
+		sets timeline range from 1 to len(files_list)
+		"""
+		if not node:
+			node = hou.pwd()
+
+		files_list = ProcessAssets.cacheAssetsList(node, debug=True)
+
+		start = 0
+		end = len(files_list) - 1
+		hou.playbar.setFrameRange(start, end)
+		hou.playbar.setPlaybackRange(start, end)
+	
+	@staticmethod
+	def getCurrentFileFromFrame(node):
+		"""
+		returns file name from files_list for a given frame and prints info
+		"""
+		files_list = ProcessAssets.cacheAssetsList( hou.pwd().parent(), debug=False )
+		file_path = files_list[ int( hou.frame() ) ]
+		
+		return file_path
+
+class CheckAssets(MegaInit):
+	"""
+	class implementing functionality of mega check digital asset
+	"""
+	def __init__(self, force_recache=False):
+		super(CheckAssets, self).__init__() # call parent class constructor
+
+		# cache loaded index into hou.session, if re-indexed, it needs to be re-created
+		if not hasattr(hou.session, "mega_index") or force_recache:
+			log.debug("Library index is not loaded into the session, loading...")
+			with open(self.libHierarchyJson) as data:
+				parsed = json.load(data)
+				setattr(hou.session, "mega_index", parsed)
+		else:
+			log.debug("Using cached library index")
+		
+		self.assetsIndex = hou.session.mega_index
+
+	def createNodes(self, node):
+		"""
+		generates nodes for each pack, aligning lods horizontally and assets vertically in single grid view
+		"""
+		node.allowEditingOfContents()
+		asset_packs = self.assetsIndex.keys()
+		asset_packs.sort()
+		packNodes = []
+		
+		for asset_pack in asset_packs:
+			assets = self.assetsIndex[asset_pack]["assets"].keys()
+			assets.sort()
+			zerolength = len(assets[0])
+			assets = [int(k) for k in assets]
+			assets.sort()
+			assets = [str(k).zfill(zerolength) for k in assets]
+			
+			mergeLodNodes = []
+			transformWidthNodes = []
+
+			for asset in assets:
+				lods = self.assetsIndex[asset_pack]["assets"][asset].keys()
+				lods.sort()
+				attribHeightNodes = []
+				transformHeightNodes = []
+
+				for lod in lods:
+					folder_path = self.assetsIndex[asset_pack]["path"]
+					asset_name = self.assetsIndex[asset_pack]["assets"][asset][lod]
+					asset_path = os.path.join(folder_path, asset_name)
+
+					# file node loads geometry
+					fileNode = node.createNode('file')
+					fileNode.setName('file_' + lod + '_', unique_name=True)
+					fileNode.parm('file').set(asset_path)
+
+					if lods.index(lod) == 0:
+						# attribwrangle_height node calculates height based on bboxsize.y
+						attribHeightNode = node.createNode('attribwrangle')
+						attribHeightNode.setName('attribwrangle_height', unique_name=True)
+						attribHeightNode.setInput(0, fileNode)
+						attribHeightNode.parm('class').set(0)
+						attribHeightNode.parm('snippet').set('f@height = getbbox_size("opinput:0").y * chf("../height_spacing");')
+
+					# transform_height node transforms currnet lod based on calculated height and lod index
+					transformHeightNode = node.createNode('xform')
+					transformHeightNode.setName('transform_height', unique_name=True)
+					if lods.index(lod) == 0:
+						transformHeightNode.setInput(0, attribHeightNode)
+					else:
+						transformHeightNode.setInput(0, fileNode)
+					transformHeightNodes.append(transformHeightNode)
+					if lods.index(lod) != 0:
+						transformHeightNode.parm('ty').setExpression('detail("' + transformHeightNodes[0].path() + '", "height", 0) * ' + str(lods.index(lod)))
+
+				# merge_lods node merges all lods of current asset
+				mergeLodNode = node.createNode('merge')
+				mergeLodNode.setName('merge_lods_' + asset + '_', unique_name=True)
+				for i in xrange(len(transformHeightNodes)):
+					mergeLodNode.setInput(i, transformHeightNodes[i])
+				mergeLodNodes.append(mergeLodNode)
+
+				# attribwrangle_absolute_scale node applies absolute transformation to current asset (1m in height) and centers it on x axis
+				absoluteScaleNode = node.createNode('attribwrangle')
+				absoluteScaleNode.setName('attribwrangle_absolute_scale', unique_name=True)
+				absoluteScaleNode.setInput(0, mergeLodNode)
+				absoluteScaleNode.parm('class').set(2)
+				absoluteScaleNode.parm('snippet').set('vector orig_size = getbbox_size(0);\nvector abs_scale_factor = set( 1 / orig_size.x, 1 / orig_size.y, 1 / orig_size.z );\nmatrix3 scale_mtx = ident();\nscale_mtx *= abs_scale_factor.y;\n@P *= scale_mtx;\nvector pivot = getbbox_center("opinput:0");\npivot *= scale_mtx;\n@P.x -= pivot.x;')
+
+				# attribwrangle_width node calculates width based on bboxsize.x
+				attribWidthNode = node.createNode('attribwrangle')
+				attribWidthNode.setName('attribwrangle_width', unique_name=True)
+				attribWidthNode.setInput(0, absoluteScaleNode)
+				attribWidthNode.parm('class').set(0)
+				attribWidthNode.parm('snippet').set('f@width = getbbox_size("opinput:0").x * chf("../width_spacing");')
+				
+				# transform_width node transforms currnet asset using tx value from last transform_width node and width of current asset
+				transformWidthNode = node.createNode('xform')
+				transformWidthNode.setName('transform_width', unique_name=True)
+				transformWidthNode.setInput(0, attribWidthNode)
+				transformWidthNodes.append(transformWidthNode)
+				if assets.index(asset) != 0:
+					transformWidthNode.parm('tx').setExpression('ch("' + lastTransform.path() + '/tx") + detail("' + lastTransform.path() + '", "width", 0) / 2 + detail("0", "width", 0) / 2')
+				lastTransform = transformWidthNode
+			
+			# merge_assets node merges all assets to one pack
+			mergeAssetNode = node.createNode('merge')
+			mergeAssetNode.setName('merge_assets', unique_name=True)
+			for i in xrange(len(transformWidthNodes)):
+				mergeAssetNode.setInput(i, transformWidthNodes[i])
+
+			# attribwrangle_tag node adds name and directory of the pack to detail attribute
+			attribTagNode = node.createNode('attribwrangle')
+			attribTagNode.setName('attribwrangle_tag', unique_name=True)
+			attribTagNode.setInput(0, mergeAssetNode)
+			attribTagNode.parm('class').set(0)
+			attribTagNode.parm('snippet').set('s@pack = "' + asset_pack + '";\ns@dir = "' + hou.expandString(folder_path) + '";')
+
+			# create null with pack name
+			nullNode = node.createNode('null')
+			nullNode.setName('null_' + asset_pack, unique_name=True)
+			nullNode.setInput(0, attribTagNode)
+			packNodes.append(nullNode)
+
+		# switch node enables switching between all packs
+		switchNode = node.createNode('switch')
+		switchNode.setName('multipack_switch', unique_name=False)
+		switchNode.parm('input').setExpression('ch("../pack")')
+		switchNode.setRenderFlag(True)
+		switchNode.setDisplayFlag(True)
+		for i in xrange(len(packNodes)):
+			switchNode.setInput(i, packNodes[i])
+
+		node.layoutChildren()
+		node.parm('pack').setExpression('@Frame - 1')
+
+	def selectSwitch(self, node):
+		node.glob('multipack_switch')[0].setDisplayFlag(True)
+		node.glob('multipack_switch')[0].setRenderFlag(True)
+	
+	def reloadFileNodes(self, node):
+		switch = node.glob('multipack_switch')[0]
+		num = switch.parm('input').eval()
+		
+		asset_packs = self.assetsIndex.keys()
+		asset_packs.sort()
+		current_pack = asset_packs[num]
+
+		null = node.glob('null_' + current_pack + '*')[0]
+		upstream = null.inputAncestors()
+
+		file_nodes = hou.nodeType(hou.sopNodeTypeCategory(), "file")
+		for node in file_nodes.instances():
+			if node in upstream:
+				node.parm('reload').pressButton()
+
+	def cleanNodes(self, node):
+		"""
+		deletes generated child nodes
+		"""
+		for deleteNode in node.children():
+			deleteNode.destroy()

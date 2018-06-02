@@ -699,27 +699,54 @@ class CheckAssets(MegaInit):
 			
 			# merge_assets node merges all assets to one pack
 			mergeAssetNode = node.createNode('merge')
-			mergeAssetNode.setName('merge_assets_' + asset_pack, unique_name=True)
+			mergeAssetNode.setName('merge_assets', unique_name=True)
 			for i in xrange(len(transformWidthNodes)):
 				mergeAssetNode.setInput(i, transformWidthNodes[i])
 
-			# attribwrangle_tag node adds name of the pack to detail attribute
+			# attribwrangle_tag node adds name and directory of the pack to detail attribute
 			attribTagNode = node.createNode('attribwrangle')
-			attribTagNode.setName('attribwrangle_tag_' + asset_pack, unique_name=True)
+			attribTagNode.setName('attribwrangle_tag', unique_name=True)
 			attribTagNode.setInput(0, mergeAssetNode)
 			attribTagNode.parm('class').set(0)
-			attribTagNode.parm('snippet').set('s@pack = "' + asset_pack + '";')
-			packNodes.append(attribTagNode)
+			attribTagNode.parm('snippet').set('s@pack = "' + asset_pack + '";\ns@dir = "' + hou.expandString(folder_path) + '";')
+
+			# create null with pack name
+			nullNode = node.createNode('null')
+			nullNode.setName('null_' + asset_pack, unique_name=True)
+			nullNode.setInput(0, attribTagNode)
+			packNodes.append(nullNode)
 
 		# switch node enables switching between all packs
 		switchNode = node.createNode('switch')
+		switchNode.setName('multipack_switch', unique_name=False)
 		switchNode.parm('input').setExpression('ch("../pack")')
+		switchNode.setRenderFlag(True)
 		switchNode.setDisplayFlag(True)
 		for i in xrange(len(packNodes)):
 			switchNode.setInput(i, packNodes[i])
 
 		node.layoutChildren()
 		node.parm('pack').setExpression('@Frame - 1')
+
+	def selectSwitch(self, node):
+		node.glob('multipack_switch')[0].setDisplayFlag(True)
+		node.glob('multipack_switch')[0].setRenderFlag(True)
+	
+	def reloadFileNodes(self, node):
+		switch = node.glob('multipack_switch')[0]
+		num = switch.parm('input').eval()
+		
+		asset_packs = self.assetsIndex.keys()
+		asset_packs.sort()
+		current_pack = asset_packs[num]
+
+		null = node.glob('null_' + current_pack + '*')[0]
+		upstream = null.inputAncestors()
+
+		file_nodes = hou.nodeType(hou.sopNodeTypeCategory(), "file")
+		for node in file_nodes.instances():
+			if node in upstream:
+				node.parm('reload').pressButton()
 
 	def cleanNodes(self, node):
 		"""

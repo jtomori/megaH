@@ -487,39 +487,29 @@ class ProcessAssets(object):
 	a class managing cracking process
 	"""
 	@staticmethod
-	def convertInFilePath(node):
-		"""
-		gets a path, extension from param from parent and replaces extension
-		this function is not used anymore
-		"""
-		extension = ".bgeo.sc"
-		parent_node = node.parent()
-
-		try:
-			in_path = parent_node.parm("file").unexpandedString()
-			in_ext = parent_node.parent().parent().parm("ext").eval()
-		except AttributeError:
-			raise AttributeError("'file' or 'ext' parameter not found")
-		
-		out_path = in_path.replace(in_ext, extension)
-		out_path = hou.expandString(out_path)
-
-		return out_path
-
-	@staticmethod
 	def convertInFilePathCracked(node):
 		"""
 		gets a path, extension from param from parent and replaces extension, prepends LOD with current asset number
 		"""
+		if not node:
+			node = hou.pwd()
+
 		extension = ".bgeo.sc"
 		parent_node = node.parent()
 
 		try:
-			in_path = parent_node.parm("file").unexpandedString()
-			in_ext = parent_node.parent().parent().parm("ext").eval()
+			in_path = parent_node.parm("file").eval()
 			asset_number = node.parm("asset_number").eval()
 		except AttributeError:
-			raise AttributeError("'file', 'ext' or 'asset_number' parameter not found")
+			raise AttributeError("'file' or 'asset_number' parameter not found")
+
+		try:
+			in_ext = parent_node.parent().parent().parm("ext").eval()
+		except AttributeError:
+			try:
+				in_ext = parent_node.parent().parm("ext").eval()
+			except AttributeError:
+				raise AttributeError("'ext' parameter not found")
 		
 		out_path = in_path
 		in_ext_list = in_ext.split(" ")
@@ -529,6 +519,8 @@ class ProcessAssets(object):
 		out_path = out_path.split("_")
 		out_path.insert(-1, asset_number)
 		out_path = "_".join(out_path)
+
+		log.debug( "frame: {}, file: {}".format( int( hou.frame() ), out_path ) )
 
 		return out_path.replace("\\", "/")
 
@@ -548,11 +540,14 @@ class ProcessAssets(object):
 		"""
 		generates child Process Asset SOP nodes and sets parameter, also creates Fetch ROPs pointing to them and merges them together
 		"""
+		if not node:
+			node = hou.pwd()
+
 		try:
 			root_path = node.parm("folder").eval()
 			ext = node.parm("ext").eval()
 		except AttributeError:
-			raise AttributeError("Specified node has no 'folder' parameter")
+			raise AttributeError("Specified node has no 'folder' and 'ext' parameters")
 		
 		sopnet = node.glob("sopnet")[0]
 		ropnet = node.glob("ropnet")[0]
@@ -587,12 +582,72 @@ class ProcessAssets(object):
 		"""
 		deletes generated child nodes
 		"""
+		if not node:
+			node = hou.pwd()
+
 		sopnet = node.glob("sopnet")[0]
 		ropnet = node.glob("ropnet")[0]
 		nodes = sopnet.glob("*") + ropnet.glob("* ^merge_render_all")
 
 		for node in nodes:
 			node.destroy()
+
+	@staticmethod
+	def cacheAssetsList(node, debug=True):
+		"""
+		caches a list of files into hou.session, returns cached object
+		"""
+		if not node:
+			node = hou.pwd()
+
+		try:
+			root_path = node.parm("folder").eval()
+			ext = node.parm("ext").eval()
+		except AttributeError:
+			raise AttributeError("Specified node has no 'folder' and 'ext' parameters")
+		
+		if not hasattr(hou.session, "files_list") or not hasattr(hou.session, "files_list_root") or hou.session.files_list_root != root_path:
+			if debug:
+				log.debug("Files list is not cached into the session or is outdated, loading...")
+
+			ext_list = ext.split(" ")
+			files = []
+			for ext_current in ext_list:
+				files.append( Utils.getFilesRecursivelyByMask(root_path, "*"+ext_current) )
+			files = Utils.flatten(files)
+
+			setattr(hou.session, "files_list", files)
+			setattr(hou.session, "files_list_root", root_path)
+		else:
+			if debug:
+				log.debug("Using cached files list")
+		
+		return hou.session.files_list
+
+	@staticmethod
+	def setTimelineRange(node):
+		"""
+		sets timeline range from 1 to len(files_list)
+		"""
+		if not node:
+			node = hou.pwd()
+
+		files_list = ProcessAssets.cacheAssetsList(node, debug=True)
+
+		start = 0
+		end = len(files_list) - 1
+		hou.playbar.setFrameRange(start, end)
+		hou.playbar.setPlaybackRange(start, end)
+	
+	@staticmethod
+	def getCurrentFileFromFrame(node):
+		"""
+		returns file name from files_list for a given frame and prints info
+		"""
+		files_list = ProcessAssets.cacheAssetsList( hou.pwd().parent(), debug=False )
+		file_path = files_list[ int( hou.frame() ) ]
+		
+		return file_path
 
 class CheckAssets(MegaInit):
 	"""

@@ -133,7 +133,7 @@ class MegaView(QtWidgets.QWidget, MegaInit):
             icon = QtGui.QIcon(img)
             
             self.button[pack].setIcon(icon)
-            print 'Loading pack ' + str(pack + 1) + '/' + str(len(self.packs))
+            #print 'Loading pack ' + str(pack + 1) + '/' + str(len(self.packs))
     
     def createCategories(self, search=False):
         self.grid_widget = []
@@ -185,38 +185,44 @@ class MegaView(QtWidgets.QWidget, MegaInit):
         for group in self.grid_layout[biotope].parentWidget().findChildren(QtWidgets.QPushButton):
             # self.grid_layout[biotope].removeWidget(group)
             group.hide()
-        for group in self.search_grid_layout.parentWidget().findChildren(QtWidgets.QPushButton):
-            # self.search_grid_layout.removeWidget(group)
-            group.hide()
 
-        spaces = self.grid_layout[biotope].spacing() * row
-        size = (self.sizeX - spaces) / row
+        try:
+            for group in self.search_grid_layout.parentWidget().findChildren(QtWidgets.QPushButton):
+                # self.search_grid_layout.removeWidget(group)
+                group.hide()
 
-        if self.search.text() == '':
-            i = 0
-            for pack in xrange(len(self.packs)):
-                packname = self.packs[pack]
-                if packname in self.biotopesIndex[biotopename]:
-                    x = i % row
-                    y = int(math.floor(i / row))
 
-                    self.button[pack].setIconSize(QtCore.QSize(size * 0.9, size * 0.9))
-                    self.button[pack].setMaximumSize(QtCore.QSize(size, size))
-                    self.grid_layout[biotope].addWidget(self.button[pack],y,x)
-                    self.button[pack].show()
-                    i += 1
-        else:
-            for pack in xrange(len(self.filteredPacks)):
-                packname = self.filteredPacks[pack]
-                x = pack % row
-                y = int(math.floor(pack / row))
+            spaces = self.grid_layout[biotope].spacing() * row
 
-                index = self.packs.index(packname)
+            size = (self.sizeX - spaces) / row
 
-                self.button[index].setIconSize(QtCore.QSize(size * 0.9, size * 0.9))
-                self.button[index].setMaximumSize(QtCore.QSize(size, size))
-                self.search_grid_layout.addWidget(self.button[index],y,x)
-                self.button[index].show()
+            if self.search.text() == '':
+                i = 0
+                for pack in xrange(len(self.packs)):
+                    packname = self.packs[pack]
+                    if packname in self.biotopesIndex[biotopename]:
+                        x = i % row
+                        y = int(math.floor(i / row))
+
+                        self.button[pack].setIconSize(QtCore.QSize(size * 0.9, size * 0.9))
+                        self.button[pack].setMaximumSize(QtCore.QSize(size, size))
+                        self.grid_layout[biotope].addWidget(self.button[pack],y,x)
+                        self.button[pack].show()
+                        i += 1
+            else:
+                for pack in xrange(len(self.filteredPacks)):
+                    packname = self.filteredPacks[pack]
+                    x = pack % row
+                    y = int(math.floor(pack / row))
+
+                    index = self.packs.index(packname)
+
+                    self.button[index].setIconSize(QtCore.QSize(size * 0.9, size * 0.9))
+                    self.button[index].setMaximumSize(QtCore.QSize(size, size))
+                    self.search_grid_layout.addWidget(self.button[index],y,x)
+                    self.button[index].show()
+        except AttributeError:
+            pass
         # print '\n\t tabSelected() current Tab index =', arg
 
     # ......................................................................................................................................
@@ -225,59 +231,107 @@ class MegaView(QtWidgets.QWidget, MegaInit):
         editor = hou.ui.paneTabOfType(hou.paneTabType.NetworkEditor)
         # context must be sop in order to add megaload, if it is not, stop
         contextname = editor.pwd().childTypeCategory().name()
-        if contextname != 'Sop':
-            hou.ui.displayMessage('Current context is not SOP, please navigate to proper place first.')            
+        if contextname != 'Sop' and contextname != 'Object':
+            hou.ui.displayMessage('Current context is not SOP or OBJ, please navigate to proper context.')            
             return
 
-        parentNode = editor.pwd()
-        path = parentNode.path()
+        if contextname == 'Object':
+            parentNode = editor.pwd()
+            path = parentNode.path()
 
-        assets = self.assetsIndex[pack]["assets"].keys() # get assets for current pack
-        assets = [x.encode("ascii") for x in assets]
-        meganodes = []
+            assets = self.assetsIndex[pack]["assets"].keys() # get assets for current pack
+            assets = [x.encode("ascii") for x in assets]
+            meganodes = []
 
-        # if there is more than one asset, create netbox with name of pack
-        if len(assets) > 1:
-            netbox = hou.node(path).createNetworkBox()
-            netbox.setName(pack, unique_name=True)
-            netbox.setComment(pack)
+            # if there is more than one asset, create netbox with name of pack
+            if len(assets) > 1:
+                netbox = hou.node(path).createNetworkBox()
+                netbox.setName(pack, unique_name=True)
+                netbox.setComment(pack)
+            
+            # for every asset in assets create megaLoad node and set its parms
+            for asset in xrange(len(assets)):
+                #print 'processing asset' + str(asset)
+                meganodeObj = hou.node(path).createNode("jt_mega_load_obj")
+                if asset == 0:
+                    meganodeObj.moveToGoodPosition(relative_to_inputs=True, move_inputs=False, move_outputs=False, move_unconnected=False)
+                    position = meganodeObj.position()
+                #meganodeObj.setSelected(1, clear_all_selected=True)
 
-        # for every asset in assets create megaLoad node and set its parms
-        for asset in xrange(len(assets)):
-            print 'processing asset' + str(asset)
-            meganode = hou.node(path).createNode(self.megaLoad)
-            if asset == 0:
-                meganode.moveToGoodPosition(relative_to_inputs=True, move_inputs=False, move_outputs=False, move_unconnected=False)
-                position = meganode.position()
-            meganode.setSelected(1, clear_all_selected=True)
-            meganode.parm('asset_pack').set(pack)
-            meganode.parm('asset').set(asset)
+                meganode = meganodeObj.glob("mega_load")[0]
 
-            lods = meganode.parm("asset_lod").menuLabels()
-            paths = meganode.parm("asset_lod").menuItems()
-            # if LOD0 exists, prefer it over others
-            if 'LOD0' in lods:
-                index = lods.index('LOD0')
-                meganode.parm('asset_lod').set(paths[index])
-            meganode.parm('reload').pressButton()
+                meganode.parm('asset_pack').set(pack)
+                meganode.parm('asset').set(asset)
 
-            meganodes.append(meganode) # meganodes holds list of created nodes
+                lods = meganode.parm("asset_lod").menuLabels()
+                paths = meganode.parm("asset_lod").menuItems()
+                # if LOD0 exists, prefer it over others
+                if 'LOD0' in lods:
+                    index = lods.index('LOD0')
+                    meganode.parm('asset_lod').set(paths[index])
+                meganode.parm('reload').pressButton()
 
-        # if there is more than one asset, add merge, auto-layout new nodes & add them to NetworkBox
-        if len(assets) > 1:
-            mergenode = hou.node(path).createNode('merge')
-            for mindex in xrange(len(meganodes)):
-                mergenode.setInput(mindex, meganodes[mindex])
-            mergenode.setName('Merge_' + '_' + pack, unique_name=True)
-            mergenode.setSelected(1, clear_all_selected=True)
+                meganodeObj.parm("rename").pressButton()
+                meganodes.append(meganodeObj) # meganodes holds list of created nodes
+            
+            # if there is more than one asset, add merge, auto-layout new nodes & add them to NetworkBox
+            if len(assets) > 1:
+                parentNode.layoutChildren(meganodes)
+                for meganode in meganodes:
+                    netbox.addItem(meganode)
+                netbox.fitAroundContents()
+                netbox.setPosition(position)
 
-            parentNode.layoutChildren(meganodes)
-            mergenode.moveToGoodPosition(relative_to_inputs=True, move_inputs=False, move_outputs=False, move_unconnected=False)
-            for meganode in meganodes:
-                netbox.addItem(meganode)
-            netbox.addItem(mergenode)
-            netbox.fitAroundContents()
-            netbox.setPosition(position)
+        elif contextname == 'Sop':
+            parentNode = editor.pwd()
+            path = parentNode.path()
+
+            assets = self.assetsIndex[pack]["assets"].keys() # get assets for current pack
+            assets = [x.encode("ascii") for x in assets]
+            meganodes = []
+
+            # if there is more than one asset, create netbox with name of pack
+            if len(assets) > 1:
+                netbox = hou.node(path).createNetworkBox()
+                netbox.setName(pack, unique_name=True)
+                netbox.setComment(pack)
+
+            # for every asset in assets create megaLoad node and set its parms
+            for asset in xrange(len(assets)):
+                #print 'processing asset' + str(asset)
+                meganode = hou.node(path).createNode(self.megaLoad)
+                if asset == 0:
+                    meganode.moveToGoodPosition(relative_to_inputs=True, move_inputs=False, move_outputs=False, move_unconnected=False)
+                    position = meganode.position()
+                meganode.setSelected(1, clear_all_selected=True)
+                meganode.parm('asset_pack').set(pack)
+                meganode.parm('asset').set(asset)
+
+                lods = meganode.parm("asset_lod").menuLabels()
+                paths = meganode.parm("asset_lod").menuItems()
+                # if LOD0 exists, prefer it over others
+                if 'LOD0' in lods:
+                    index = lods.index('LOD0')
+                    meganode.parm('asset_lod').set(paths[index])
+                meganode.parm('reload').pressButton()
+
+                meganodes.append(meganode) # meganodes holds list of created nodes
+
+            # if there is more than one asset, add merge, auto-layout new nodes & add them to NetworkBox
+            if len(assets) > 1:
+                mergenode = hou.node(path).createNode('merge')
+                for mindex in xrange(len(meganodes)):
+                    mergenode.setInput(mindex, meganodes[mindex])
+                mergenode.setName('Merge_' + '_' + pack, unique_name=True)
+                mergenode.setSelected(1, clear_all_selected=True)
+
+                parentNode.layoutChildren(meganodes)
+                mergenode.moveToGoodPosition(relative_to_inputs=True, move_inputs=False, move_outputs=False, move_unconnected=False)
+                for meganode in meganodes:
+                    netbox.addItem(meganode)
+                netbox.addItem(mergenode)
+                netbox.fitAroundContents()
+                netbox.setPosition(position)
 
         self.buttonBorder()
     # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<

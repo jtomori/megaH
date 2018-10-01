@@ -67,7 +67,7 @@ class Utils(object):
 		folders = []
 		for root, dirs, files in os.walk(path):
 			if not dirs:
-				folders.append(root)
+				folders.append(os.path.normpath(root))
 		return folders
 
 class MegaInit(object):
@@ -97,11 +97,11 @@ class BuildAssetsHierarchy(MegaInit):
 		build a dict containing all the assets and needed information
 		"""
 		asset_folders_paths = Utils.getLeafFoldersPaths(self.libPath_3d)
-		asset_folders_names = []
-		
+		#asset_folders_names = [] # not used
+
 		# create a dictionary with folder names as keys and folder full paths as values
 		index_dict = { os.path.basename( os.path.normpath(path) ):path for path in asset_folders_paths }
-
+		
 		for key, value in index_dict.iteritems():
 			# get all asset files inside of a dir
 			dir_files = Utils.getFilesByMask(value, self.extMask)
@@ -390,7 +390,7 @@ class MegaLoad(MegaInit):
 
 		# determine asset and asset display paths
 		folder_path = asset_pack_dict["path"] # relative to $MEGA_LIB
-		folder_path_expanded = hou.expandString(folder_path) # absolute
+		#folder_path_expanded = hou.expandString(folder_path) # absolute # not used
 		asset_path = os.path.join(folder_path, lods_dict[lod]).replace("\\", "/")
 		asset_display_path = os.path.join(folder_path, lods_dict[display_lod]).replace("\\", "/")
 		if not relative_enable:
@@ -690,7 +690,7 @@ class CheckAssets(MegaInit):
 			for asset in assets:
 				lods = self.assetsIndex[asset_pack]["assets"][asset].keys()
 				lods.sort()
-				attribHeightNodes = []
+				#attribHeightNodes = [] # not used
 				transformHeightNodes = []
 
 				for lod in lods:

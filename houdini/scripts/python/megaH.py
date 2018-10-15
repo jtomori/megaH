@@ -598,11 +598,13 @@ class ProcessAssets(object):
 		if not node:
 			node = hou.pwd()
 
-		try:
-			root_path = node.parm("folder").eval()
-			ext = node.parm("ext").eval()
-		except AttributeError:
-			raise AttributeError("Specified node has no 'folder' and 'ext' parameters")
+		root_paths = []
+		parms = node.parm("folders").multiParmInstances()
+
+		for parm in parms:
+			root_paths.append(parm.eval())
+
+		ext = node.parm("ext").eval()
 		
 		sopnet = node.glob("sopnet")[0]
 		ropnet = node.glob("ropnet")[0]
@@ -611,8 +613,10 @@ class ProcessAssets(object):
 		ext_list = ext.split(" ")
 		files = []
 		for ext_current in ext_list:
-			files.append( Utils.getFilesRecursivelyByMask(root_path, "*"+ext_current) )
+			for root_path in root_paths:
+				files.append( Utils.getFilesRecursivelyByMask(root_path, "*"+ext_current) )
 		files = Utils.flatten(files)
+		files = list(set(files))
 
 		process_nodes = []
 		fetch_nodes = []
@@ -632,6 +636,27 @@ class ProcessAssets(object):
 		sopnet.layoutChildren()
 		ropnet.layoutChildren()
 	
+	@staticmethod
+	def convertTextures(node):
+		"""
+		runs batch texture conversion tool and fills in paths from folders multiparm on this node
+		it relies on batch_textures_convert tool (https://github.com/jtomori/batch_textures_convert)
+		"""
+		if not node:
+			node = hou.pwd()
+		
+		folder_paths = []
+		parms = node.parm("folders").multiParmInstances()
+
+		for parm in parms:
+			folder_paths.append(parm.eval())
+
+		try:
+			import batch_convert
+			batch_convert.runGui(path=batch_convert.paths_separator.join(folder_paths))
+		except ImportError:
+			log.error("batch_convert module could not be imported")
+
 	@staticmethod
 	def cleanChildren(node):
 		"""

@@ -235,52 +235,66 @@ class MegaView(QtWidgets.QWidget, MegaInit):
             hou.ui.displayMessage('Current context is not SOP or OBJ, please navigate to proper context.')            
             return
 
+        # only SoM specific, it requires SoM pipeline
         if contextname == 'Object':
-            parentNode = editor.pwd()
-            path = parentNode.path()
+            try:
+                import strands_hou
 
-            assets = self.assetsIndex[pack]["assets"].keys() # get assets for current pack
-            assets = [x.encode("ascii") for x in assets]
-            meganodes = []
+                parentNode = editor.pwd()
+                path = parentNode.path()
 
-            # if there is more than one asset, create netbox with name of pack
-            if len(assets) > 1:
-                netbox = hou.node(path).createNetworkBox()
-                netbox.setName(pack, unique_name=True)
-                netbox.setComment(pack)
-            
-            # for every asset in assets create megaLoad node and set its parms
-            for asset in xrange(len(assets)):
-                #print 'processing asset' + str(asset)
-                meganodeObj = hou.node(path).createNode("jt_mega_load_obj")
-                if asset == 0:
-                    meganodeObj.moveToGoodPosition(relative_to_inputs=True, move_inputs=False, move_outputs=False, move_unconnected=False)
-                    position = meganodeObj.position()
-                #meganodeObj.setSelected(1, clear_all_selected=True)
+                assets = self.assetsIndex[pack]["assets"].keys() # get assets for current pack
+                assets = [x.encode("ascii") for x in assets]
+                meganodes = []
 
-                meganode = meganodeObj.glob("mega_load")[0]
+                # if there is more than one asset, create netbox with name of pack
+                if len(assets) > 1:
+                    netbox = hou.node(path).createNetworkBox()
+                    netbox.setName(pack, unique_name=True)
+                    netbox.setComment(pack)
+                
+                # for every asset in assets create megaLoad node and set its parms
+                masterShaderPath = ""
+                for asset in xrange(len(assets)):
+                    #print 'processing asset' + str(asset)
+                    meganodeObj = hou.node(path).createNode("jt_mega_load_obj")
+                    if asset == 0:
+                        meganodeObj.moveToGoodPosition(relative_to_inputs=True, move_inputs=False, move_outputs=False, move_unconnected=False)
+                        position = meganodeObj.position()
+                        meganodeObj.setColor( hou.Color((0, 0, 0)) )
+                        masterShaderNode = strands_hou.MegaUtils.getChildMaterialAssign(meganodeObj).parm("shop_materialpath1").evalAsNode()
+                    else:
+                        mat_node = strands_hou.MegaUtils.getChildMaterialAssign(meganodeObj)
+                        mat_node.parm("shop_materialpath1").set(masterShaderNode.path())
 
-                meganode.parm('asset_pack').set(pack)
-                meganode.parm('asset').set(asset)
+                    #meganodeObj.setSelected(1, clear_all_selected=True)
 
-                lods = meganode.parm("asset_lod").menuLabels()
-                paths = meganode.parm("asset_lod").menuItems()
-                # if LOD0 exists, prefer it over others
-                if 'LOD0' in lods:
-                    index = lods.index('LOD0')
-                    meganode.parm('asset_lod').set(paths[index])
-                meganode.parm('reload').pressButton()
+                    meganode = meganodeObj.glob("mega_load")[0]
 
-                meganodeObj.parm("rename").pressButton()
-                meganodes.append(meganodeObj) # meganodes holds list of created nodes
-            
-            # if there is more than one asset, add merge, auto-layout new nodes & add them to NetworkBox
-            if len(assets) > 1:
-                parentNode.layoutChildren(meganodes)
-                for meganode in meganodes:
-                    netbox.addItem(meganode)
-                netbox.fitAroundContents()
-                netbox.setPosition(position)
+                    meganode.parm('asset_pack').set(pack)
+                    meganode.parm('asset').set(asset)
+
+                    lods = meganode.parm("asset_lod").menuLabels()
+                    paths = meganode.parm("asset_lod").menuItems()
+                    # if LOD0 exists, prefer it over others
+                    if 'LOD0' in lods:
+                        index = lods.index('LOD0')
+                        meganode.parm('asset_lod').set(paths[index])
+                    meganode.parm('reload').pressButton()
+
+                    meganodeObj.parm("rename").pressButton()
+                    meganodes.append(meganodeObj) # meganodes holds list of created nodes
+                
+                # if there is more than one asset, add merge, auto-layout new nodes & add them to NetworkBox
+                if len(assets) > 1:
+                    parentNode.layoutChildren(meganodes)
+                    for meganode in meganodes:
+                        netbox.addItem(meganode)
+                    netbox.fitAroundContents()
+                    netbox.setPosition(position)
+                    
+            except ImportError:
+                print "only SoM specific, it requires SoM pipeline"
 
         elif contextname == 'Sop':
             parentNode = editor.pwd()

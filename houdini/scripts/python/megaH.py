@@ -7,7 +7,7 @@ import logging
 import fnmatch
 
 # logging config
-enable_logging = True
+enable_logging = False
 
 if enable_logging:
 	logging.basicConfig(level=logging.DEBUG)
@@ -67,8 +67,30 @@ class Utils(object):
 		folders = []
 		for root, dirs, files in os.walk(path):
 			if not dirs:
-				folders.append(root)
+				folders.append(os.path.normpath(root))
 		return folders
+	
+	@staticmethod
+	def getBestTextureFormat(ext_list, tex_list):
+		"""
+		returns index to a texture from tex_list which has the highest priority in ext_list
+		if none of texture extensions is in ext_list, will return None
+		
+		ext_list
+			is list of extensions in ascending order (the latter, the higher priority), e.g.:
+			["jpg", "tif", "png", "exr", "rat"]
+		"""
+		extensions = [tex.split(".")[-1] for tex in tex_list]
+		
+		idx = -1
+		for ext in ext_list:
+			if ext in extensions:
+				idx = extensions.index(ext)
+		
+		if idx != -1:
+			return idx
+		else:
+			return None
 
 class MegaInit(object):
 	"""
@@ -91,17 +113,63 @@ class MegaInit(object):
 class BuildAssetsHierarchy(MegaInit):
 	"""
 	generates and writes a dictionary with hierarchy of all megascans assets and their respective LODs
+
+	one key of dictionary looks like this
+		"Debris_Nature_Brown_qdzrT": {
+			"assets": {
+				"0": {
+					"LOD0": "Sctr_mushroom_brown_T_qdzrT_0_LOD0.bgeo.sc", 
+					"LOD1": "Sctr_mushroom_brown_T_qdzrT_0_LOD1.bgeo.sc", 
+					"LOD2": "Sctr_mushroom_brown_T_qdzrT_0_LOD2.bgeo.sc"
+				}, 
+				"1": {
+					"LOD0": "Sctr_mushroom_brown_T_qdzrT_1_LOD0.bgeo.sc", 
+					"LOD1": "Sctr_mushroom_brown_T_qdzrT_1_LOD1.bgeo.sc", 
+					"LOD2": "Sctr_mushroom_brown_T_qdzrT_1_LOD2.bgeo.sc"
+				}
+			}, 
+			"environment": {
+				"biome": "temperate-forest", 
+				"region": "Oceania"
+			}, 
+			"path": "$MEGA_LIB/3d/Debris_Nature_Brown_qdzrT", 
+			"preview_image": "Debris_Nature_Brown_qdzrT_3d_Preview.png", 
+			"tags": [
+				"flat", 
+				"fungi", 
+				"organic", 
+				"scatter", 
+				"mushroom"
+			], 
+			"textures": {
+				"albedo": "Sctr_mushroom_brown_T_qdzrT_4K_Albedo.jpg", 
+				"bump": "Sctr_mushroom_brown_T_qdzrT_4K_Bump.jpg", 
+				"cavity": "Sctr_mushroom_brown_T_qdzrT_4K_Cavity.jpg", 
+				"displacement": "Sctr_mushroom_brown_T_qdzrT_4K_Displacement.exr", 
+				"fuzz": "", 
+				"gloss": "Sctr_mushroom_brown_T_qdzrT_4K_Gloss.jpg", 
+				"normal": {
+					"LOD0": "Sctr_mushroom_brown_T_qdzrT_4K_Normal_LOD0.jpg", 
+					"LOD1": "Sctr_mushroom_brown_T_qdzrT_4K_Normal_LOD1.jpg", 
+					"LOD2": "Sctr_mushroom_brown_T_qdzrT_4K_Normal_LOD2.jpg"
+				}, 
+				"normalBump": "Sctr_mushroom_brown_T_qdzrT_4K_NormalBump.jpg", 
+				"opacity": "", 
+				"roughness": "Sctr_mushroom_brown_T_qdzrT_4K_Roughness.jpg", 
+				"specular": "Sctr_mushroom_brown_T_qdzrT_4K_Specular.jpg"
+			}
+		}
 	"""
 	def build(self, debug=False):
 		"""
 		build a dict containing all the assets and needed information
 		"""
 		asset_folders_paths = Utils.getLeafFoldersPaths(self.libPath_3d)
-		asset_folders_names = []
-		
+		#asset_folders_names = [] # not used
+
 		# create a dictionary with folder names as keys and folder full paths as values
 		index_dict = { os.path.basename( os.path.normpath(path) ):path for path in asset_folders_paths }
-
+		
 		for key, value in index_dict.iteritems():
 			# get all asset files inside of a dir
 			dir_files = Utils.getFilesByMask(value, self.extMask)
@@ -131,8 +199,12 @@ class BuildAssetsHierarchy(MegaInit):
 			preview_image = Utils.getFilesByMask(value, "*Preview*")
 			if len(preview_image) == 0:
 				preview_image = ""
-			else:
+			elif len(preview_image) == 1:
 				preview_image = preview_image[0]
+			else:
+				preview_image_idx = Utils.getBestTextureFormat(["jpg", "png"], preview_image)
+				preview_image = preview_image[ preview_image_idx ]
+
 			asset_dict["preview_image"] = preview_image
 
 			# get metadata from accompanying json file
@@ -228,31 +300,14 @@ class BuildAssetsHierarchy(MegaInit):
 					if len(files_list) == 1:
 						picked_file[lod] = files_list[0]
 					elif len(files_list) > 1:
-						# convert list of found texture candidates to the most suitable one :)
-						extensions = []
-						for file in files_list:
-							extensions.append( file.split(".")[-1] )
-						
-						idx = 0
-						for ext in order:
-							if ext in extensions:
-								idx = extensions.index(ext)
-						
+						idx = Utils.getBestTextureFormat(order, files_list)
 						picked_file[lod] = files_list[idx]
 					else:
 						picked_file[lod] = ""
 			else:
 				# convert list of found texture candidates to the most suitable one :)
 				if len(files) > 1:
-					extensions = []
-					for file in files:
-						extensions.append( file.split(".")[-1] )
-					
-					idx = 0
-					for ext in order:
-						if ext in extensions:
-							idx = extensions.index(ext)
-					
+					idx = Utils.getBestTextureFormat(order, files)
 					picked_file = files[idx]
 				elif len(files) == 1:
 					picked_file = files[0]
@@ -390,7 +445,7 @@ class MegaLoad(MegaInit):
 
 		# determine asset and asset display paths
 		folder_path = asset_pack_dict["path"] # relative to $MEGA_LIB
-		folder_path_expanded = hou.expandString(folder_path) # absolute
+		#folder_path_expanded = hou.expandString(folder_path) # absolute # not used
 		asset_path = os.path.join(folder_path, lods_dict[lod]).replace("\\", "/")
 		asset_display_path = os.path.join(folder_path, lods_dict[display_lod]).replace("\\", "/")
 		if not relative_enable:
@@ -690,7 +745,7 @@ class CheckAssets(MegaInit):
 			for asset in assets:
 				lods = self.assetsIndex[asset_pack]["assets"][asset].keys()
 				lods.sort()
-				attribHeightNodes = []
+				#attribHeightNodes = [] # not used
 				transformHeightNodes = []
 
 				for lod in lods:

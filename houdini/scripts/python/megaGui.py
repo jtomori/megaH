@@ -181,42 +181,45 @@ class MegaView(QtWidgets.QWidget, MegaInit):
         biotope = self.tab_widget.currentIndex()
         biotopename = self.biotopes[int(biotope)]
 
-        # cleanup all buttons
-        for group in self.grid_layout[biotope].parentWidget().findChildren(QtWidgets.QPushButton):
-            # self.grid_layout[biotope].removeWidget(group)
-            group.hide()
-        for group in self.search_grid_layout.parentWidget().findChildren(QtWidgets.QPushButton):
-            # self.search_grid_layout.removeWidget(group)
-            group.hide()
+        try:
+            # cleanup all buttons
+            for group in self.grid_layout[biotope].parentWidget().findChildren(QtWidgets.QPushButton):
+                # self.grid_layout[biotope].removeWidget(group)
+                group.hide()
+            for group in self.search_grid_layout.parentWidget().findChildren(QtWidgets.QPushButton):
+                # self.search_grid_layout.removeWidget(group)
+                group.hide()
 
-        spaces = self.grid_layout[biotope].spacing() * row
-        size = (self.sizeX - spaces) / row
+            spaces = self.grid_layout[biotope].spacing() * row
+            size = (self.sizeX - spaces) / row
 
-        if self.search.text() == '':
-            i = 0
-            for pack in xrange(len(self.packs)):
-                packname = self.packs[pack]
-                if packname in self.biotopesIndex[biotopename]:
-                    x = i % row
-                    y = int(math.floor(i / row))
+            if self.search.text() == '':
+                i = 0
+                for pack in xrange(len(self.packs)):
+                    packname = self.packs[pack]
+                    if packname in self.biotopesIndex[biotopename]:
+                        x = i % row
+                        y = int(math.floor(i / row))
 
-                    self.button[pack].setIconSize(QtCore.QSize(size * 0.9, size * 0.9))
-                    self.button[pack].setMaximumSize(QtCore.QSize(size, size))
-                    self.grid_layout[biotope].addWidget(self.button[pack],y,x)
-                    self.button[pack].show()
-                    i += 1
-        else:
-            for pack in xrange(len(self.filteredPacks)):
-                packname = self.filteredPacks[pack]
-                x = pack % row
-                y = int(math.floor(pack / row))
+                        self.button[pack].setIconSize(QtCore.QSize(size * 0.9, size * 0.9))
+                        self.button[pack].setMaximumSize(QtCore.QSize(size, size))
+                        self.grid_layout[biotope].addWidget(self.button[pack],y,x)
+                        self.button[pack].show()
+                        i += 1
+            else:
+                for pack in xrange(len(self.filteredPacks)):
+                    packname = self.filteredPacks[pack]
+                    x = pack % row
+                    y = int(math.floor(pack / row))
 
-                index = self.packs.index(packname)
+                    index = self.packs.index(packname)
 
-                self.button[index].setIconSize(QtCore.QSize(size * 0.9, size * 0.9))
-                self.button[index].setMaximumSize(QtCore.QSize(size, size))
-                self.search_grid_layout.addWidget(self.button[index],y,x)
-                self.button[index].show()
+                    self.button[index].setIconSize(QtCore.QSize(size * 0.9, size * 0.9))
+                    self.button[index].setMaximumSize(QtCore.QSize(size, size))
+                    self.search_grid_layout.addWidget(self.button[index],y,x)
+                    self.button[index].show()
+        except AttributeError:
+            pass
         # print '\n\t tabSelected() current Tab index =', arg
 
     # ......................................................................................................................................

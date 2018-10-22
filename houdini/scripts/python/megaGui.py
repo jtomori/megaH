@@ -254,14 +254,13 @@ class MegaView(QtWidgets.QWidget, MegaInit):
                 position = meganode.position()
             meganode.setSelected(1, clear_all_selected=True)
             meganode.parm('asset_pack').set(pack)
+            meganode.parm('reload').pressButton()
             meganode.parm('asset').set(asset)
 
-            lods = meganode.parm("asset_lod").menuLabels()
-            paths = meganode.parm("asset_lod").menuItems()
+            lods = meganode.parm("asset_lod").menuItems()
             # if LOD0 exists, prefer it over others
             if 'LOD0' in lods:
-                index = lods.index('LOD0')
-                meganode.parm('asset_lod').set(paths[index])
+                meganode.parm('asset_lod').set('LOD0')
             meganode.parm('reload').pressButton()
 
             meganodes.append(meganode) # meganodes holds list of created nodes

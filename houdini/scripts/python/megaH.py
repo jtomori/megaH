@@ -69,6 +69,16 @@ class Utils(object):
 			if not dirs:
 				folders.append(os.path.normpath(root))
 		return folders
+
+	@staticmethod
+	def getFoldersPathsContainingJson(path):
+		folders = []
+		for root, dirs, files in os.walk(path):
+			for filename in files:
+				if filename[-4:] == "json":
+					if root != path:
+						folders.append(os.path.normpath(root))
+		return folders
 	
 	@staticmethod
 	def getBestTextureFormat(ext_list, tex_list):
@@ -164,7 +174,7 @@ class BuildAssetsHierarchy(MegaInit):
 		"""
 		build a dict containing all the assets and needed information
 		"""
-		asset_folders_paths = Utils.getLeafFoldersPaths(self.libPath_3d)
+		asset_folders_paths = Utils.getFoldersPathsContainingJson(self.libPath_3d)
 		#asset_folders_names = [] # not used
 
 		# create a dictionary with folder names as keys and folder full paths as values

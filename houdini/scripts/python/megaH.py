@@ -72,10 +72,13 @@ class Utils(object):
 
 	@staticmethod
 	def getFoldersPathsContainingJson(path):
+		"""
+		return a list of recursively found folders that contain json file (exluding input path since it contains index.json and biotopes.json)
+		"""
 		folders = []
 		for root, dirs, files in os.walk(path):
 			for filename in files:
-				if filename[-4:] == "json":
+				if filename.endswith("json"):
 					if root != path:
 						folders.append(os.path.normpath(root))
 		return folders

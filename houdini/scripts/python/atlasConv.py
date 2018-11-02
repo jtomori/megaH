@@ -3,6 +3,9 @@ import huilib
 import random
 import os
 
+'''
+generates whole structure of nodes for atlas asset conversion
+'''
 def genAssets(rootNode, nestedInstancesEnable, singleAssetSavePath, multiAssetCount, multiAssetSavePath):
     path = rootNode.parent().path()
 
@@ -116,7 +119,9 @@ def genAssets(rootNode, nestedInstancesEnable, singleAssetSavePath, multiAssetCo
         newNodes.append(singleProxyAssetNullNode)
 
 
-    # loop over number of final assets
+    '''
+    loop over number of final assets
+    '''
     for i in xrange(multiAssetCount):
         # create switch
         mainSwitchNode = hou.node(path).createNode('switch')
@@ -231,6 +236,9 @@ def genAssets(rootNode, nestedInstancesEnable, singleAssetSavePath, multiAssetCo
         
     rootNode.parent().layoutChildren(newNodes, horizontal_spacing=2)
 
+'''
+generates simple structure that could be used to loop through isolated groups
+'''
 def checkGroups(rootNode):
     path = rootNode.parent().path()
     newNodes = []
@@ -252,6 +260,9 @@ def checkGroups(rootNode):
 
     rootNode.parent().layoutChildren(newNodes)
 
+'''
+cooks every file node in current active directory
+'''
 def cookFileNodes():
     editor = hou.ui.paneTabOfType(hou.paneTabType.NetworkEditor)
     workingDirectory = editor.pwd().path()

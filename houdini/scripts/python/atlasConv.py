@@ -50,6 +50,8 @@ def genAssets(rootNode, nestedInstancesEnable, singleAssetSavePath, multiAssetCo
         # create atlas deform node
         atlasDeformNode = transformNode.createOutputNode('atlas_deform')
         atlasDeformNode.setName('atlas_deform_' + str(i))
+        red = hou.Color((0.7,0.3,0.2))
+        atlasDeformNode.setColor(red)
         atlasDeformNode.parm('offset1').set(random.randint(0, 100))
         newNodes.append(atlasDeformNode)
 
@@ -103,6 +105,8 @@ def genAssets(rootNode, nestedInstancesEnable, singleAssetSavePath, multiAssetCo
         referenceProxyNodes = hou.node(path).copyItems([hou.item(atlasDeformNode.path()), hou.item(megaTransformNode.path())], channel_reference_originals=True)
         referenceProxyNodes[0].setInput(0, snapProxyPointsNode)
         referenceProxyNodes[0].setName('atlas_deform_proxy_' + str(i))
+        gray = hou.Color((0.8, 0.8, 0.8))
+        referenceProxyNodes[0].setColor(gray)
         referenceProxyNodes[1].setName('megatransform_proxy_' + str(i))
         newNodes.extend((referenceProxyNodes[0], referenceProxyNodes[1]))
 
@@ -134,6 +138,7 @@ def genAssets(rootNode, nestedInstancesEnable, singleAssetSavePath, multiAssetCo
         # create atlas scatter points node
         atlasScatterPointsNode = hou.node(path).createNode('atlas_scatter_points')
         atlasScatterPointsNode.setName('atlas_scatter_points_' + str(i + 1))
+        atlasScatterPointsNode.setColor(red)
         atlasScatterPointsNode.parm('radius').set(random.uniform(1, 5))
         atlasScatterPointsNode.parm('npts').set(random.randint(2, 12))
         newNodes.append(atlasScatterPointsNode)
@@ -223,7 +228,6 @@ def genAssets(rootNode, nestedInstancesEnable, singleAssetSavePath, multiAssetCo
         proxyWriteMultiAssetNode.parm('filemode').set(2)
         proxyWriteMultiAssetNode.parm('file').set(multiAssetSavePath + '_' + str(i + 1) + '_LOD0.bgeo.sc')
         newNodes.append(proxyWriteMultiAssetNode)
-
         
     rootNode.parent().layoutChildren(newNodes, horizontal_spacing=2)
 
@@ -245,7 +249,7 @@ def checkGroups(rootNode):
         newNodes.append(blastNode)
 
         switchNode.setInput(i - 1, blastNode)
-        
+
     rootNode.parent().layoutChildren(newNodes)
 
 def cookFileNodes():

@@ -286,13 +286,28 @@ class GenDialog(huilib.HDialog):
         separator = huilib.HSeparator()
 
         # info text
-        self.infoLabel = huilib.HLabel('This tool generates node structure used for conversion from atlas asset -> to geometry asset.')
-        self.addGadget(self.infoLabel)
+        info1Label = huilib.HLabel('This tool generates node structure used for conversion from atlas asset -> to geometry asset.')
+        info2Label = huilib.HLabel('Root Node should contain traced atlas divided into groups.')
+        info3Label = huilib.HLabel('Nested instance should be created when single asset is too heavy.')
+        info4Label = huilib.HLabel('Multi Asset Count holds number of final assets to be created.')
+        info5Label = huilib.HLabel('Names are used when generating proper path.')
+        info6Label = huilib.HLabel('Check Groups generates simple structure that could be used to loop through isolated groups.')
+        info7Label = huilib.HLabel('Cook File Nodes cooks every file node in current active directory.')
+        columnLayout = huilib.HColumnLayout()
+        columnLayout.addGadget(info1Label)
+        columnLayout.addGadget(info2Label)
+        columnLayout.addGadget(info3Label)
+        columnLayout.addGadget(info4Label)
+        columnLayout.addGadget(info5Label)
+        columnLayout.addGadget(info6Label)
+        columnLayout.addGadget(info7Label)
+
+        # CollapserLayout
+        collapser = huilib.HCollapserLayout('Info', layout = 'vertical')
+        collapser.addLayout(columnLayout)
+        self.addGadget(collapser)
         self.addGadget(separator)
         
-        # root node info text
-        self.info2Label = huilib.HLabel('Root Node should contain traced atlas divided into groups.')
-        self.addGadget(self.info2Label)        
         # root node
         self.rootField = huilib.HStringField('root_node', 'Root Node  ')
         # fill in value of first selected node (if there is some)
@@ -301,18 +316,6 @@ class GenDialog(huilib.HDialog):
         self.addGadget(self.rootField)
         self.addGadget(separator)
 
-        # check groups info text
-        self.info3Label = huilib.HLabel('Check Groups generates simple structure that could be used to loop through isolated groups.')
-        self.addGadget(self.info3Label)
-        # check groups button
-        self.checkButton = huilib.HButton('check', 'Check Groups')
-        self.checkButton.connect(self.callCheck)
-        self.addGadget(self.checkButton)
-        self.addGadget(separator)
-
-        # nested instance info text
-        self.info4Label = huilib.HLabel('Nested instance should be created when single asset is too heavy.')
-        self.addGadget(self.info4Label)
         # nested instances
         self.nestedInstancesCheckbox = huilib.HCheckbox('nested_instances', 'Nested instances  ')
         self.nestedInstancesCheckbox.setValue(True)
@@ -325,9 +328,6 @@ class GenDialog(huilib.HDialog):
         self.addGadget(self.multiAssetCount)
         self.addGadget(separator)
 
-        # names info text
-        self.info5Label = huilib.HLabel('Names are used when generating proper path.')
-        self.addGadget(self.info5Label)
         # pack name string
         self.packNameField = huilib.HStringField('pack_name_field', 'Pack Name   ')
         if len(hou.selectedNodes()) > 0:
@@ -346,20 +346,25 @@ class GenDialog(huilib.HDialog):
             self.assetNameField.setValue(assetName)
         self.addGadget(self.assetNameField)
 
-        # generate button
-        self.generateButton = huilib.HButton('generate', 'Generate')
-        self.generateButton.connect(self.callGenerate)
-        self.addGadget(self.generateButton)
-        self.addGadget(separator)
 
-        # names info text
-        self.info6Label = huilib.HLabel('Cook File Nodes cooks every file node in current active directory.')
-        self.addGadget(self.info6Label)
+        # check groups button
+        self.checkButton = huilib.HButton('check', 'Check Groups')
+        self.checkButton.connect(self.callCheck)
+
         # coock file nodes button
         self.cookButton = huilib.HButton('cook', 'Cook File Nodes')
         self.cookButton.connect(cookFileNodes)
-        self.addGadget(self.cookButton)
 
+        # generate button
+        self.generateButton = huilib.HButton('generate', 'Generate Main Structure')
+        self.generateButton.connect(self.callGenerate)
+
+        rowLayout = huilib.HRowLayout()
+        rowLayout.addGadget(self.checkButton)
+        rowLayout.addGadget(self.cookButton)
+        rowLayout.addGadget(self.generateButton)
+        self.addGadget(rowLayout)
+        
         self.initUI()
 
     def callGenerate(self):

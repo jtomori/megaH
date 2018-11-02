@@ -3,7 +3,7 @@ import huilib
 import random
 import os
 
-def genAssets(rootNode, noiseVopNode, nestedInstancesEnable, singleAssetSavePath, multiAssetCount, scatterPointAttribsNode, multiAssetSavePath):
+def genAssets(rootNode, nestedInstancesEnable, singleAssetSavePath, multiAssetCount, multiAssetSavePath):
     path = rootNode.parent().path()
 
     #create proxy grid, reverse normals and null output
@@ -25,18 +25,19 @@ def genAssets(rootNode, noiseVopNode, nestedInstancesEnable, singleAssetSavePath
         blastNode.setName('blast_' + str(i))
         blastNode.parm('group').set(name)
         blastNode.parm('negate').set(1)
+        newNodes.append(blastNode)
 
         # create transform node
         transformNode = blastNode.createOutputNode('xform')
         transformNode.setName('transform_' + str(i))
         # center its pivot
         transformNode.parm('movecentroid').pressButton()
-
         # get minvector from bounding box of geometry
         geo = transformNode.geometry()
         pivot = geo.boundingBox().minvec()
         # adjust Y in transform node
         transformNode.parm('ty').set(transformNode.parm('ty').eval() - pivot[1])
+        newNodes.append(transformNode)
 
         # create matchsize
         matchSizeNode = hou.node(path).createNode('matchsize')
@@ -44,44 +45,25 @@ def genAssets(rootNode, noiseVopNode, nestedInstancesEnable, singleAssetSavePath
         matchSizeNode.setInput(0, proxy_grid)
         matchSizeNode.setInput(1, transformNode)
         matchSizeNode.parm("doscale").set(1)
+        newNodes.append(matchSizeNode)
 
-        # copy noise vop
-        noiseVopNode = hou.copyNodesTo([noiseVopNode], hou.node(path))[0]
-        noiseVopNode.setName('noise_vop_' + str(i))
-        noiseVopNode.setInput(0, transformNode)
-        noiseVopNode.parm('offset1').set(random.randint(0, 100))
-        # noiseVopNode.parm('amp').set(random.uniform(0.02, 0.06))
-        noiseVopNode.moveToGoodPosition()
-
-        # create bend1
-        bend1Node = noiseVopNode.createOutputNode('bend')
-        bend1Node.setName('bend_vertical_' + str(i))
-        bend1Node.parm('limit_deformation').set(0)
-        bend1Node.parm('dirx').set(1)
-        bend1Node.parm('dirz').set(0)
-        bend1Node.parm('bend').set(random.uniform(0, 10))
-
-        # create bend2
-        bend2Node = bend1Node.createOutputNode('bend')
-        bend2Node.setName('bend_horizontal_' + str(i))
-        bend2Node.parm('vis_falloff').set(0)
-        bend2Node.parm('diry').set(1)
-        bend2Node.parm('dirz').set(0.01)
-        '''
-        setup bend values and noise vop values!
-        '''
+        # create atlas deform node
+        atlasDeformNode = transformNode.createOutputNode('atlas_deform')
+        atlasDeformNode.setName('atlas_deform_' + str(i))
+        atlasDeformNode.parm('offset1').set(random.randint(0, 100))
+        newNodes.append(atlasDeformNode)
 
         # create transform that scales geometry by 100
-        megaTransformNode = bend2Node.createOutputNode('xform')
+        megaTransformNode = atlasDeformNode.createOutputNode('xform')
         megaTransformNode.setName('megatransform_' + str(i))
         megaTransformNode.parm('scale').set(100)
+        newNodes.append(megaTransformNode)
 
         # create groupdelete
         groupdeleteNode = megaTransformNode.createOutputNode('groupdelete')
         groupdeleteNode.setName('groupdelete_' + str(i))
         groupdeleteNode.parm('group1').set('*')
-
-        newNodes.extend((blastNode, transformNode, matchSizeNode, noiseVopNode, bend1Node, bend2Node, megaTransformNode, groupdeleteNode))
+        newNodes.append(groupdeleteNode)
 
         if nestedInstancesEnable == 1:
             # create single asset write file node
@@ -118,16 +100,14 @@ def genAssets(rootNode, noiseVopNode, nestedInstancesEnable, singleAssetSavePath
         newNodes.append(snapProxyPointsNode)
 
         # create reference copies of modifiers
-        referenceProxyNodes = hou.node(path).copyItems([hou.item(noiseVopNode.path()), hou.item(bend1Node.path()), hou.item(bend2Node.path()), hou.item(megaTransformNode.path())], channel_reference_originals=True)
+        referenceProxyNodes = hou.node(path).copyItems([hou.item(atlasDeformNode.path()), hou.item(megaTransformNode.path())], channel_reference_originals=True)
         referenceProxyNodes[0].setInput(0, snapProxyPointsNode)
-        referenceProxyNodes[0].setName('noise_vop_proxy_' + str(i))
-        referenceProxyNodes[1].setName('bend_vertical_proxy_' + str(i))
-        referenceProxyNodes[2].setName('bend_horizontal_proxy_' + str(i))
-        referenceProxyNodes[3].setName('megatransform_proxy_' + str(i))
-        newNodes.extend((referenceProxyNodes[0], referenceProxyNodes[1], referenceProxyNodes[2], referenceProxyNodes[3]))
+        referenceProxyNodes[0].setName('atlas_deform_proxy_' + str(i))
+        referenceProxyNodes[1].setName('megatransform_proxy_' + str(i))
+        newNodes.extend((referenceProxyNodes[0], referenceProxyNodes[1]))
 
         # create null as proxy asset output
-        singleProxyAssetNullNode = referenceProxyNodes[3].createOutputNode('null')
+        singleProxyAssetNullNode = referenceProxyNodes[1].createOutputNode('null')
         singleProxyAssetNullNode.setName('asset_proxy_output_' + str(i))
         newNodes.append(singleProxyAssetNullNode)
 
@@ -151,32 +131,18 @@ def genAssets(rootNode, noiseVopNode, nestedInstancesEnable, singleAssetSavePath
             mainSwitchNode.setInput(j, singleAssetNullNode)
             proxySwitchNode.setInput(j, singleProxyAssetNullNode)
 
-        # create circle
-        circleNode = hou.node(path).createNode('circle')
-        circleNode.setName('circle_' + str(i + 1))
-        circleNode.parm('orient').set(2)
-        circleNode.parm('scale').set(random.uniform(1, 8))
-        newNodes.append(circleNode)
-
-        # create scatter
-        scatterNode = circleNode.createOutputNode('scatter::2.0')
-        scatterNode.setName('scatter_' + str(i + 1))
-        scatterNode.parm('npts').set(random.randint(2, 15))
-        newNodes.append(scatterNode)
-
-        # copy node that generates point attributes for scatter points
-        scatterPointAttribsNode = hou.copyNodesTo([scatterPointAttribsNode], hou.node(path))[0]
-        scatterPointAttribsNode.setName('generate_point_attribs_' + str(i + 1))
-        scatterPointAttribsNode.setInput(0, scatterNode)
-        scatterPointAttribsNode.parm('piecenum').setExpression('opninputs(opinputpath(opoutputpath(opoutputpath(".", 0), 0), 0))')
-        scatterPointAttribsNode.moveToGoodPosition()
-        newNodes.append(scatterPointAttribsNode)
+        # create atlas scatter points node
+        atlasScatterPointsNode = hou.node(path).createNode('atlas_scatter_points')
+        atlasScatterPointsNode.setName('atlas_scatter_points_' + str(i + 1))
+        atlasScatterPointsNode.parm('radius').set(random.uniform(1, 5))
+        atlasScatterPointsNode.parm('npts').set(random.randint(2, 12))
+        newNodes.append(atlasScatterPointsNode)
 
         '''
         section of nodes for HIGH detail geometry
         '''
         # create main loop begin
-        mainLoopBeginNode = scatterPointAttribsNode.createOutputNode('block_begin')
+        mainLoopBeginNode = atlasScatterPointsNode.createOutputNode('block_begin')
         mainLoopBeginNode.setName('foreach_begin_' + str(i + 1))
         mainLoopBeginNode.parm('method').set(1)
         mainLoopBeginNode.parm('blockpath').set('../foreach_end_' + str(i + 1))
@@ -216,7 +182,7 @@ def genAssets(rootNode, noiseVopNode, nestedInstancesEnable, singleAssetSavePath
         section of nodes for PROXY geometry
         '''
         # create proxy loop begin
-        proxyLoopBeginNode = scatterPointAttribsNode.createOutputNode('block_begin')
+        proxyLoopBeginNode = atlasScatterPointsNode.createOutputNode('block_begin')
         proxyLoopBeginNode.setName('foreach_begin_proxy_' + str(i + 1))
         proxyLoopBeginNode.parm('method').set(1)
         proxyLoopBeginNode.parm('blockpath').set('../foreach_end_proxy_' + str(i + 1))
@@ -261,6 +227,38 @@ def genAssets(rootNode, noiseVopNode, nestedInstancesEnable, singleAssetSavePath
         
     rootNode.parent().layoutChildren(newNodes, horizontal_spacing=2)
 
+def checkGroups(rootNode):
+    path = rootNode.parent().path()
+    newNodes = []
+
+    switchNode = hou.node(path).createNode('switch')
+    switchNode.parm('input').setExpression('@Frame')
+    newNodes.append(switchNode)
+
+    groups = [g.name() for g in rootNode.geometry().primGroups()]
+    for i, name in enumerate(groups, 1):
+        # create blast to isolate group
+        blastNode = rootNode.createOutputNode('blast')
+        blastNode.setName('blast_' + str(i))
+        blastNode.parm('group').set(name)
+        blastNode.parm('negate').set(1)
+        newNodes.append(blastNode)
+
+        switchNode.setInput(i - 1, blastNode)
+        
+    rootNode.parent().layoutChildren(newNodes)
+
+def cookFileNodes():
+    editor = hou.ui.paneTabOfType(hou.paneTabType.NetworkEditor)
+    workingDirectory = editor.pwd().path()
+    workingNodes = hou.node(workingDirectory).children()
+
+    node_type = hou.nodeType(hou.sopNodeTypeCategory(), 'file')
+    fileNodes = node_type.instances()
+
+    for node in fileNodes:
+        if node in workingNodes:
+            node.cook(force=True)
 
 # Generate GUI ................................................................................................................................................................................
 class GenDialog(huilib.HDialog):
@@ -269,28 +267,37 @@ class GenDialog(huilib.HDialog):
         self.setWindowLayout('vertical')
         self.setWindowAttributes(stretch=True, margin=0.1, spacing=0.1, min_width=5)
 
+        # universal separator
+        separator = huilib.HSeparator()
+
+        # info text
+        self.infoLabel = huilib.HLabel('This tool generates node structure used for conversion from atlas asset -> to geometry asset.')
+        self.addGadget(self.infoLabel)
+        self.addGadget(separator)
+        
+        # root node info text
+        self.info2Label = huilib.HLabel('Root Node should contain traced atlas divided into groups.')
+        self.addGadget(self.info2Label)        
         # root node
         self.rootField = huilib.HStringField('root_node', 'Root Node  ')
         # fill in value of first selected node (if there is some)
         if len(hou.selectedNodes()) > 0:
             self.rootField.setValue(hou.selectedNodes()[0].path())
         self.addGadget(self.rootField)
+        self.addGadget(separator)
 
-        '''
-        # noise vop node
-        self.noiseField = huilib.HStringField('noise_vop_node', 'Noise Vop Node  ')
-        # fill in value of second selected node (if there is some)
-        if len(hou.selectedNodes()) > 1:
-            self.noiseField.setValue(hou.selectedNodes()[1].path())
-        self.addGadget(self.noiseField)
+        # check groups info text
+        self.info3Label = huilib.HLabel('Check Groups generates simple structure that could be used to loop through isolated groups.')
+        self.addGadget(self.info3Label)
+        # check groups button
+        self.checkButton = huilib.HButton('check', 'Check Groups')
+        self.checkButton.connect(self.callCheck)
+        self.addGadget(self.checkButton)
+        self.addGadget(separator)
 
-        # scatter point attributes
-        self.scatterPointAttribsField = huilib.HStringField('scatter_point_attributes_field', 'Generate Point Attribs Node  ')
-        if len(hou.selectedNodes()) > 2:
-            self.scatterPointAttribsField.setValue(hou.selectedNodes()[2].path())
-        self.addGadget(self.scatterPointAttribsField)
-        '''
-
+        # nested instance info text
+        self.info4Label = huilib.HLabel('Nested instance should be created when single asset is too heavy.')
+        self.addGadget(self.info4Label)
         # nested instances
         self.nestedInstancesCheckbox = huilib.HCheckbox('nested_instances', 'Nested instances  ')
         self.nestedInstancesCheckbox.setValue(True)
@@ -301,11 +308,17 @@ class GenDialog(huilib.HDialog):
         self.multiAssetCount.setRange((1, 10))
         self.multiAssetCount.setValue(5)
         self.addGadget(self.multiAssetCount)
+        self.addGadget(separator)
 
+        # names info text
+        self.info5Label = huilib.HLabel('Names are used when generating proper path.')
+        self.addGadget(self.info5Label)
         # pack name string
-        self.packNameField = huilib.HStringField('pack_name_field', 'Pack Name  ')
+        self.packNameField = huilib.HStringField('pack_name_field', 'Pack Name   ')
         if len(hou.selectedNodes()) > 0:
             packName = hou.selectedNodes()[0].parent().name()
+        else:
+            packName = ''
         self.packNameField.setValue(packName)
         self.addGadget(self.packNameField)
 
@@ -319,22 +332,36 @@ class GenDialog(huilib.HDialog):
         self.addGadget(self.assetNameField)
 
         # generate button
-        self.generateButton= huilib.HButton('generate', 'Generate')
+        self.generateButton = huilib.HButton('generate', 'Generate')
         self.generateButton.connect(self.callGenerate)
         self.addGadget(self.generateButton)
+        self.addGadget(separator)
+
+        # names info text
+        self.info6Label = huilib.HLabel('Cook File Nodes cooks every file node in current active directory.')
+        self.addGadget(self.info6Label)
+        # coock file nodes button
+        self.cookButton = huilib.HButton('cook', 'Cook File Nodes')
+        self.cookButton.connect(cookFileNodes)
+        self.addGadget(self.cookButton)
 
         self.initUI()
 
     def callGenerate(self):
+        # context must be sop, if it is not, stop
+        editor = hou.ui.paneTabOfType(hou.paneTabType.NetworkEditor)
+        contextname = editor.pwd().childTypeCategory().name()
+        if contextname != 'Sop':
+            hou.ui.displayMessage('Current context is not SOP, please navigate to proper place first.')            
+            return
+        
+        # root node must be filled in, if it is not, stop
         rootNode = self.rootField.getValue()
-        rootNode = hou.node(rootNode)
-
-        '''
-        noiseVopNode = self.noiseField.getValue()
-        noiseVopNode = hou.node(noiseVopNode)
-        scatterPointAttribsNode = self.scatterPointAttribsField.getValue()
-        scatterPointAttribsNode = hou.node(scatterPointAttribsNode)
-        '''
+        if rootNode == '':
+            hou.ui.displayMessage('Fill in Root Node path.')            
+            return
+        else:
+            rootNode = hou.node(rootNode)
 
         nestedInstancesEnable = self.nestedInstancesCheckbox.getValue()
         singleAssetSavePath = '$MEGA_LIB/3d/' + self.packNameField.getValue() + '/single_asset/' + self.assetNameField.getValue()
@@ -342,8 +369,26 @@ class GenDialog(huilib.HDialog):
         multiAssetCount = int(self.multiAssetCount.getValue())
         multiAssetSavePath = '$MEGA_LIB/3d/' + self.packNameField.getValue() + '/' + self.assetNameField.getValue()
         
-        genAssets(rootNode, noiseVopNode, nestedInstancesEnable, singleAssetSavePath, multiAssetCount, scatterPointAttribsNode, multiAssetSavePath)
+        genAssets(rootNode, nestedInstancesEnable, singleAssetSavePath, multiAssetCount, multiAssetSavePath)
         self.close()
+
+    def callCheck(self):
+        # context must be sop, if it is not, stop
+        editor = hou.ui.paneTabOfType(hou.paneTabType.NetworkEditor)
+        contextname = editor.pwd().childTypeCategory().name()
+        if contextname != 'Sop':
+            hou.ui.displayMessage('Current context is not SOP, please navigate to proper place first.')            
+            return
+
+        # root node must be filled in, if it is not, stop
+        rootNode = self.rootField.getValue()
+        if rootNode == '':
+            hou.ui.displayMessage('Fill in Root Node path.')            
+            return
+        else:
+            rootNode = hou.node(rootNode)
+
+        checkGroups(rootNode)
 
 def show_gen_ui():
     # Try to find the dialog by name

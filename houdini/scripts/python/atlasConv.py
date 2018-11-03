@@ -318,7 +318,7 @@ class GenDialog(huilib.HDialog):
 
         # nested instances
         self.nestedInstancesCheckbox = huilib.HCheckbox('nested_instances', 'Nested instances  ')
-        self.nestedInstancesCheckbox.setValue(True)
+        self.nestedInstancesCheckbox.setValue(False)
         self.addGadget(self.nestedInstancesCheckbox)
 
         # multi asset count

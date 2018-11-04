@@ -121,8 +121,8 @@ def genAssets(rootNode, nestedInstancesEnable, singleAssetSavePath, multiAssetCo
         # create polyreduce
         polyreduceNode = groupdeleteNode.createOutputNode('polyreduce::2.0')
         polyreduceNode.setName('polyreduce_' + str(i))
-        polyreduceNode.parm('percentage').set(6)
-        polyreduceNode.parm('equalizelengths').set(0.5)
+        polyreduceNode.parm('percentage').set(15)
+        polyreduceNode.parm('boundaryweight').set(100)
         newNodes.append(polyreduceNode)
 
         # create null as reduced asset output
@@ -139,15 +139,15 @@ def genAssets(rootNode, nestedInstancesEnable, singleAssetSavePath, multiAssetCo
         mainSwitchNode.setName('switch_' + str(i + 1))
         mainSwitchNode.parm('input').setExpression('point(opinputpath(opoutputpath(".", 0), 1), 0, "piece", 0)')
 
-        # create proxy switch
-        proxySwitchNode = hou.node(path).createNode('switch')
-        proxySwitchNode.setName('proxy_switch_' + str(i + 1))
-        proxySwitchNode.parm('input').setExpression('point(opinputpath(opoutputpath(".", 0), 1), 0, "piece", 0)')
-
         # create reduced switch
         reducedSwitchNode = hou.node(path).createNode('switch')
         reducedSwitchNode.setName('reduced_switch_' + str(i + 1))
         reducedSwitchNode.parm('input').setExpression('point(opinputpath(opoutputpath(".", 0), 1), 0, "piece", 0)')
+
+        # create proxy switch
+        proxySwitchNode = hou.node(path).createNode('switch')
+        proxySwitchNode.setName('proxy_switch_' + str(i + 1))
+        proxySwitchNode.parm('input').setExpression('point(opinputpath(opoutputpath(".", 0), 1), 0, "piece", 0)')
 
         # connect switches to assets
         for j in xrange(len(groups)):

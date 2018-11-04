@@ -120,6 +120,7 @@ def genAssets(rootNode, nestedInstancesEnable, singleAssetSavePath, multiAssetCo
 
         # create polyreduce
         polyreduceNode = groupdeleteNode.createOutputNode('polyreduce::2.0')
+        polyreduceNode.setName('polyreduce_' + str(i))
         polyreduceNode.parm('percentage').set(5)
         polyreduceNode.parm('equalizelengths').set(0.5)
         newNodes.append(polyreduceNode)
@@ -310,6 +311,63 @@ def genAssets(rootNode, nestedInstancesEnable, singleAssetSavePath, multiAssetCo
         newNodes.append(proxyWriteMultiAssetNode)
 
     rootNode.parent().layoutChildren(newNodes, horizontal_spacing=2)
+
+    '''
+    create netbox for all single assets
+    '''
+    for i, name in enumerate(groups, 1):
+        netbox = hou.node(path).createNetworkBox()
+        netbox.setName('asset_' + str(i), unique_name=True)
+        netbox.setComment('asset_' + str(i))
+
+        netbox.addItem(hou.node(path + '/blast_' + str(i)))
+        netbox.addItem(hou.node(path + '/transform_' + str(i)))
+        netbox.addItem(hou.node(path + '/atlas_deform_' + str(i)))
+        netbox.addItem(hou.node(path + '/megatransform_' + str(i)))
+        netbox.addItem(hou.node(path + '/groupdelete_' + str(i)))
+        netbox.addItem(hou.node(path + '/asset_output_' + str(i)))
+
+        netbox.addItem(hou.node(path + '/matchsize_' + str(i)))
+        netbox.addItem(hou.node(path + '/snap_proxy_points_' + str(i)))
+        netbox.addItem(hou.node(path + '/atlas_deform_proxy_' + str(i)))
+        netbox.addItem(hou.node(path + '/megatransform_proxy_' + str(i)))
+        netbox.addItem(hou.node(path + '/asset_proxy_output_' + str(i)))
+
+        netbox.addItem(hou.node(path + '/polyreduce_' + str(i)))
+        netbox.addItem(hou.node(path + '/asset_reduced_output_' + str(i)))
+        netbox.fitAroundContents()
+    '''
+    create netbox for all final assets
+    '''
+    for i in xrange(multiAssetCount):
+        netbox = hou.node(path).createNetworkBox()
+        netbox.setName('output_' + str(i + 1), unique_name=True)
+        netbox.setComment('output_' + str(i + 1))
+
+        netbox.addItem(hou.node(path + '/atlas_scatter_points_' + str(i + 1)))
+
+        netbox.addItem(hou.node(path + '/foreach_begin_' + str(i + 1)))
+        netbox.addItem(hou.node(path + '/copy_to_points_' + str(i + 1)))
+        netbox.addItem(hou.node(path + '/foreach_end_' + str(i + 1)))
+        netbox.addItem(hou.node(path + '/unpack_' + str(i + 1)))
+        netbox.addItem(hou.node(path + '/attribdelete_' + str(i + 1)))
+        netbox.addItem(hou.node(path + '/write_multi_asset_' + str(i + 1)))
+
+        netbox.addItem(hou.node(path + '/foreach_begin_reduced_' + str(i + 1)))
+        netbox.addItem(hou.node(path + '/copy_to_points_reduced_' + str(i + 1)))
+        netbox.addItem(hou.node(path + '/foreach_end_reduced_' + str(i + 1)))
+        netbox.addItem(hou.node(path + '/unpack_reduced_' + str(i + 1)))
+        netbox.addItem(hou.node(path + '/attribdelete_reduced_' + str(i + 1)))
+        netbox.addItem(hou.node(path + '/write_multi_asset_reduced_' + str(i + 1)))
+
+        netbox.addItem(hou.node(path + '/foreach_begin_proxy_' + str(i + 1)))
+        netbox.addItem(hou.node(path + '/copy_to_points_proxy_' + str(i + 1)))
+        netbox.addItem(hou.node(path + '/foreach_end_proxy_' + str(i + 1)))
+        netbox.addItem(hou.node(path + '/unpack_proxy_' + str(i + 1)))
+        netbox.addItem(hou.node(path + '/attribdelete_proxy_' + str(i + 1)))
+        netbox.addItem(hou.node(path + '/write_multi_asset_proxy_' + str(i + 1)))
+        netbox.fitAroundContents()
+
 
 '''
 generates simple structure that could be used to loop through isolated groups

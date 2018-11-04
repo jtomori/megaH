@@ -264,11 +264,15 @@ class BuildAssetsHierarchy(MegaInit):
 
 		# delete cache from hou.session
 		try:
-			log.debug("Deleting library index cache from hou.session")
 			del hou.session.__dict__["mega_index"]
+			log.debug("Deleting library index cache from hou.session")
 		except KeyError:
 			log.debug("Hou.session has no library index cache, not deleting anything")
 		
+		# reload mega load hda module
+		megaType = hou.nodeType(hou.sopNodeTypeCategory(), 'jt_megaLoad_v3')
+		megaType.hdaModule()._HDAModule__reload()
+
 		end = time.time()
 		hou.ui.displayMessage("Assets indexing done in: %0.4f seconds" % (end-start), title="Done")
 	

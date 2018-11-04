@@ -6,8 +6,10 @@ import os
 '''
 generates whole structure of nodes for atlas asset conversion
 '''
-def genAssets(rootNode, nestedInstancesEnable, singleAssetSavePath, multiAssetCount, multiAssetSavePath):
+def genAssets(rootNode, nestedInstancesEnable, proxyType, singleAssetSavePath, multiAssetCount, multiAssetSavePath):
     path = rootNode.parent().path()
+
+    newNodes = []
 
     #create proxy grid, reverse normals and null output
     grid = hou.node(path).createNode('grid')
@@ -17,8 +19,6 @@ def genAssets(rootNode, nestedInstancesEnable, singleAssetSavePath, multiAssetCo
     reverse = grid.createOutputNode('reverse')
     proxy_grid = reverse.createOutputNode('null')
     proxy_grid.setName('proxy_grid')
-
-    newNodes = []
     newNodes.extend((grid, reverse, proxy_grid))
 
     groups = [g.name() for g in rootNode.geometry().primGroups()]
@@ -113,8 +113,22 @@ def genAssets(rootNode, nestedInstancesEnable, singleAssetSavePath, multiAssetCo
         referenceProxyNodes[1].setName('megatransform_proxy_' + str(i))
         newNodes.extend((referenceProxyNodes[0], referenceProxyNodes[1]))
 
+        # create polyreduce
+        polyreduceNode = groupdeleteNode.createOutputNode('polyreduce::2.0')
+        polyreduceNode.parm('percentage').set(5)
+        polyreduceNode.parm('equalizelengths').set(0.5)
+        newNodes.append(polyreduceNode)
+
+        # create switch between polyreduce and card
+        switchProxySetupNode = hou.node(path).createNode('switch')
+        switchProxySetupNode.setName('switch_proxy_type_' + str(i))
+        switchProxySetupNode.setInput(0, referenceProxyNodes[1])
+        switchProxySetupNode.setInput(1, polyreduceNode)
+        switchProxySetupNode.parm('input').set(int(proxyType))
+        newNodes.append(switchProxySetupNode)
+
         # create null as proxy asset output
-        singleProxyAssetNullNode = referenceProxyNodes[1].createOutputNode('null')
+        singleProxyAssetNullNode = switchProxySetupNode.createOutputNode('null')
         singleProxyAssetNullNode.setName('asset_proxy_output_' + str(i))
         newNodes.append(singleProxyAssetNullNode)
 
@@ -316,6 +330,11 @@ class GenDialog(huilib.HDialog):
         self.addGadget(self.rootField)
         self.addGadget(separator)
 
+        # choose proxy type - card or polyreduce
+        self.proxyTypeMenu = huilib.HStringMenu('proxy_type', 'Proxy geo type')
+        self.proxyTypeMenu.setMenuItems(['Polyreduce', 'Card'])
+        self.addGadget(self.proxyTypeMenu)
+
         # nested instances
         self.nestedInstancesCheckbox = huilib.HCheckbox('nested_instances', 'Nested instances  ')
         self.nestedInstancesCheckbox.setValue(False)
@@ -324,7 +343,7 @@ class GenDialog(huilib.HDialog):
         # multi asset count
         self.multiAssetCount = huilib.HIntSlider('multi_asset_count', 'Multi Asset Count  ')
         self.multiAssetCount.setRange((1, 10))
-        self.multiAssetCount.setValue(5)
+        self.multiAssetCount.setValue(6)
         self.addGadget(self.multiAssetCount)
         self.addGadget(separator)
 
@@ -384,12 +403,19 @@ class GenDialog(huilib.HDialog):
             rootNode = hou.node(rootNode)
 
         nestedInstancesEnable = self.nestedInstancesCheckbox.getValue()
+        proxyType = self.proxyTypeMenu.getValue()
+        # switch proxyType values to represent inputs in switch node
+        if proxyType == 1:
+            proxyType = 0
+        else:
+            proxyType = 1
+
         singleAssetSavePath = '$MEGA_LIB/3d/' + self.packNameField.getValue() + '/single_asset/' + self.assetNameField.getValue()
 
         multiAssetCount = int(self.multiAssetCount.getValue())
         multiAssetSavePath = '$MEGA_LIB/3d/' + self.packNameField.getValue() + '/' + self.assetNameField.getValue()
         
-        genAssets(rootNode, nestedInstancesEnable, singleAssetSavePath, multiAssetCount, multiAssetSavePath)
+        genAssets(rootNode, nestedInstancesEnable, proxyType, singleAssetSavePath, multiAssetCount, multiAssetSavePath)
         self.close()
 
     def callCheck(self):

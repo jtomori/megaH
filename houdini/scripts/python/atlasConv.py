@@ -6,7 +6,7 @@ import os
 '''
 generates whole structure of nodes for atlas asset conversion
 '''
-def genAssets(rootNode, nestedInstancesEnable, proxyType, singleAssetSavePath, multiAssetCount, multiAssetSavePath):
+def genAssets(rootNode, nestedInstancesEnable, singleAssetSavePath, multiAssetCount, multiAssetSavePath):
     path = rootNode.parent().path()
 
     newNodes = []
@@ -113,25 +113,21 @@ def genAssets(rootNode, nestedInstancesEnable, proxyType, singleAssetSavePath, m
         referenceProxyNodes[1].setName('megatransform_proxy_' + str(i))
         newNodes.extend((referenceProxyNodes[0], referenceProxyNodes[1]))
 
+        # create null as proxy asset output
+        singleProxyAssetNullNode = referenceProxyNodes[1].createOutputNode('null')
+        singleProxyAssetNullNode.setName('asset_proxy_output_' + str(i))
+        newNodes.append(singleProxyAssetNullNode)
+
         # create polyreduce
         polyreduceNode = groupdeleteNode.createOutputNode('polyreduce::2.0')
         polyreduceNode.parm('percentage').set(5)
         polyreduceNode.parm('equalizelengths').set(0.5)
         newNodes.append(polyreduceNode)
 
-        # create switch between polyreduce and card
-        switchProxySetupNode = hou.node(path).createNode('switch')
-        switchProxySetupNode.setName('switch_proxy_type_' + str(i))
-        switchProxySetupNode.setInput(0, referenceProxyNodes[1])
-        switchProxySetupNode.setInput(1, polyreduceNode)
-        switchProxySetupNode.parm('input').set(int(proxyType))
-        newNodes.append(switchProxySetupNode)
-
-        # create null as proxy asset output
-        singleProxyAssetNullNode = switchProxySetupNode.createOutputNode('null')
-        singleProxyAssetNullNode.setName('asset_proxy_output_' + str(i))
-        newNodes.append(singleProxyAssetNullNode)
-
+        # create null as reduced asset output
+        singleReducedAssetNullNode = polyreduceNode.createOutputNode('null')
+        singleReducedAssetNullNode.setName('asset_reduced_output_' + str(i))
+        newNodes.append(singleReducedAssetNullNode)
 
     '''
     loop over number of final assets
@@ -147,12 +143,19 @@ def genAssets(rootNode, nestedInstancesEnable, proxyType, singleAssetSavePath, m
         proxySwitchNode.setName('proxy_switch_' + str(i + 1))
         proxySwitchNode.parm('input').setExpression('point(opinputpath(opoutputpath(".", 0), 1), 0, "piece", 0)')
 
+        # create reduced switch
+        reducedSwitchNode = hou.node(path).createNode('switch')
+        reducedSwitchNode.setName('reduced_switch_' + str(i + 1))
+        reducedSwitchNode.parm('input').setExpression('point(opinputpath(opoutputpath(".", 0), 1), 0, "piece", 0)')
+
         # connect switches to assets
         for j in xrange(len(groups)):
             singleAssetNullNode = hou.node(os.path.join(path, 'asset_output_') + str(j + 1))
             singleProxyAssetNullNode = hou.node(os.path.join(path, 'asset_proxy_output_') + str(j + 1))
+            singleReducedAssetNullNode = hou.node(os.path.join(path, 'asset_reduced_output_') + str(j + 1))
             mainSwitchNode.setInput(j, singleAssetNullNode)
             proxySwitchNode.setInput(j, singleProxyAssetNullNode)
+            reducedSwitchNode.setInput(j, singleReducedAssetNullNode)
 
         # create atlas scatter points node
         atlasScatterPointsNode = hou.node(path).createNode('atlas_scatter_points')
@@ -177,6 +180,8 @@ def genAssets(rootNode, nestedInstancesEnable, proxyType, singleAssetSavePath, m
         mainCopyToPointsNode.setName('copy_to_points_' + str(i + 1))
         mainCopyToPointsNode.setInput(1, mainLoopBeginNode)
         mainCopyToPointsNode.setInput(0, mainSwitchNode)
+        if nestedInstancesEnable != 1:
+            mainCopyToPointsNode.parm('pack').set(1)
         newNodes.append(mainCopyToPointsNode)
 
         # create main loop end
@@ -188,8 +193,18 @@ def genAssets(rootNode, nestedInstancesEnable, proxyType, singleAssetSavePath, m
         mainLoopEndNode.parm('templatepath').set('../foreach_begin_' + str(i + 1))
         newNodes.append(mainLoopEndNode)
 
+        # create main unpack node
+        if nestedInstancesEnable != 1:
+            mainUnpackNode = mainLoopEndNode.createOutputNode('unpack')
+            mainUnpackNode.setName('unpack_' + str(i + 1))
+            newNodes.append(mainUnpackNode)
+
         # create main attribdelete
-        mainAttribdeleteNode = mainLoopEndNode.createOutputNode('attribdelete')
+        mainAttribdeleteNode = hou.node(path).createNode('attribdelete')
+        if nestedInstancesEnable != 1:
+            mainAttribdeleteNode.setInput(0, mainUnpackNode)
+        else:
+            mainAttribdeleteNode.setInput(0, mainLoopEndNode)
         mainAttribdeleteNode.setName('attribdelete_' + str(i + 1))
         mainAttribdeleteNode.parm('ptdel').set('* ^P')
         mainAttribdeleteNode.parm('primdel').set('path')
@@ -201,6 +216,52 @@ def genAssets(rootNode, nestedInstancesEnable, proxyType, singleAssetSavePath, m
         mainWriteMultiAssetNode.parm('filemode').set(2)
         mainWriteMultiAssetNode.parm('file').set(multiAssetSavePath + '_' + str(i + 1) + '_High.bgeo.sc')
         newNodes.append(mainWriteMultiAssetNode)
+
+        '''
+        section of nodes for REDUCED geometry
+        '''
+        # create reduced loop begin
+        reducedLoopBeginNode = atlasScatterPointsNode.createOutputNode('block_begin')
+        reducedLoopBeginNode.setName('foreach_begin_reduced_' + str(i + 1))
+        reducedLoopBeginNode.parm('method').set(1)
+        reducedLoopBeginNode.parm('blockpath').set('../foreach_end_reduced_' + str(i + 1))
+        newNodes.append(reducedLoopBeginNode)
+
+        # create reduced copy to points
+        reducedCopyToPointsNode = hou.node(path).createNode('copytopoints')
+        reducedCopyToPointsNode.setName('copy_to_points_reduced_' + str(i + 1))
+        reducedCopyToPointsNode.parm('pack').set(1)
+        reducedCopyToPointsNode.setInput(1, reducedLoopBeginNode)
+        reducedCopyToPointsNode.setInput(0, reducedSwitchNode)
+        newNodes.append(reducedCopyToPointsNode)
+
+        # create reduced loop end
+        reducedLoopEndNode = reducedCopyToPointsNode.createOutputNode('block_end')
+        reducedLoopEndNode.setName('foreach_end_reduced_' + str(i + 1))
+        reducedLoopEndNode.parm('itermethod').set(1)
+        reducedLoopEndNode.parm('method').set(1)
+        reducedLoopEndNode.parm('blockpath').set('../foreach_begin_reduced_' + str(i + 1))
+        reducedLoopEndNode.parm('templatepath').set('../foreach_begin_reduced_' + str(i + 1))
+        newNodes.append(reducedLoopEndNode)
+
+        # create reduced unpack
+        reducedUnpackNode = reducedLoopEndNode.createOutputNode('unpack')
+        reducedUnpackNode.setName('unpack_reduced_' + str(i + 1))
+        newNodes.append(reducedUnpackNode)
+
+        # create reduced attribdelete
+        reducedAttribdeleteNode = reducedUnpackNode.createOutputNode('attribdelete')
+        reducedAttribdeleteNode.setName('attribdelete_reduced_' + str(i + 1))
+        reducedAttribdeleteNode.parm('ptdel').set('* ^P')
+        reducedAttribdeleteNode.parm('primdel').set('path')
+        newNodes.append(reducedAttribdeleteNode)
+
+        # create reduced multi asset write file node
+        reducedWriteMultiAssetNode = reducedAttribdeleteNode.createOutputNode('file')
+        reducedWriteMultiAssetNode.setName('write_multi_asset_reduced_' + str(i + 1))
+        reducedWriteMultiAssetNode.parm('filemode').set(2)
+        reducedWriteMultiAssetNode.parm('file').set(multiAssetSavePath + '_' + str(i + 1) + '_LOD0.bgeo.sc')
+        newNodes.append(reducedWriteMultiAssetNode)
 
         '''
         section of nodes for PROXY geometry
@@ -245,9 +306,9 @@ def genAssets(rootNode, nestedInstancesEnable, proxyType, singleAssetSavePath, m
         proxyWriteMultiAssetNode = proxyAttribdeleteNode.createOutputNode('file')
         proxyWriteMultiAssetNode.setName('write_multi_asset_proxy_' + str(i + 1))
         proxyWriteMultiAssetNode.parm('filemode').set(2)
-        proxyWriteMultiAssetNode.parm('file').set(multiAssetSavePath + '_' + str(i + 1) + '_LOD0.bgeo.sc')
+        proxyWriteMultiAssetNode.parm('file').set(multiAssetSavePath + '_' + str(i + 1) + '_LOD1.bgeo.sc')
         newNodes.append(proxyWriteMultiAssetNode)
-        
+
     rootNode.parent().layoutChildren(newNodes, horizontal_spacing=2)
 
 '''
@@ -330,11 +391,6 @@ class GenDialog(huilib.HDialog):
         self.addGadget(self.rootField)
         self.addGadget(separator)
 
-        # choose proxy type - card or polyreduce
-        self.proxyTypeMenu = huilib.HStringMenu('proxy_type', 'Proxy geo type')
-        self.proxyTypeMenu.setMenuItems(['Polyreduce', 'Card'])
-        self.addGadget(self.proxyTypeMenu)
-
         # nested instances
         self.nestedInstancesCheckbox = huilib.HCheckbox('nested_instances', 'Nested instances  ')
         self.nestedInstancesCheckbox.setValue(False)
@@ -403,19 +459,13 @@ class GenDialog(huilib.HDialog):
             rootNode = hou.node(rootNode)
 
         nestedInstancesEnable = self.nestedInstancesCheckbox.getValue()
-        proxyType = self.proxyTypeMenu.getValue()
-        # switch proxyType values to represent inputs in switch node
-        if proxyType == 1:
-            proxyType = 0
-        else:
-            proxyType = 1
 
         singleAssetSavePath = '$MEGA_LIB/3d/' + self.packNameField.getValue() + '/single_asset/' + self.assetNameField.getValue()
 
         multiAssetCount = int(self.multiAssetCount.getValue())
         multiAssetSavePath = '$MEGA_LIB/3d/' + self.packNameField.getValue() + '/' + self.assetNameField.getValue()
         
-        genAssets(rootNode, nestedInstancesEnable, proxyType, singleAssetSavePath, multiAssetCount, multiAssetSavePath)
+        genAssets(rootNode, nestedInstancesEnable, singleAssetSavePath, multiAssetCount, multiAssetSavePath)
         self.close()
 
     def callCheck(self):

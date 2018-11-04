@@ -55,7 +55,7 @@ def genAssets(rootNode, nestedInstancesEnable, singleAssetSavePath, multiAssetCo
         atlasDeformNode.setName('atlas_deform_' + str(i))
         red = hou.Color((0.7,0.3,0.2))
         atlasDeformNode.setColor(red)
-        atlasDeformNode.parm('offset1').set(random.randint(0, 100))
+        atlasDeformNode.parm('offset1').set(random.randint(0, 500))
         newNodes.append(atlasDeformNode)
 
         # create transform that scales geometry by 100
@@ -121,7 +121,7 @@ def genAssets(rootNode, nestedInstancesEnable, singleAssetSavePath, multiAssetCo
         # create polyreduce
         polyreduceNode = groupdeleteNode.createOutputNode('polyreduce::2.0')
         polyreduceNode.setName('polyreduce_' + str(i))
-        polyreduceNode.parm('percentage').set(5)
+        polyreduceNode.parm('percentage').set(6)
         polyreduceNode.parm('equalizelengths').set(0.5)
         newNodes.append(polyreduceNode)
 

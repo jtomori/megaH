@@ -247,7 +247,7 @@ class MegaView(QtWidgets.QWidget, MegaInit):
 
         # for every asset in assets create megaLoad node and set its parms
         for asset in xrange(len(assets)):
-            print 'processing asset' + str(asset)
+            # print 'processing asset ' + str(asset)
             meganode = hou.node(path).createNode(self.megaLoad)
             if asset == 0:
                 meganode.moveToGoodPosition(relative_to_inputs=True, move_inputs=False, move_outputs=False, move_unconnected=False)

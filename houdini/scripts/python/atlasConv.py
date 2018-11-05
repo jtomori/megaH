@@ -88,12 +88,16 @@ def genAssets(rootNode, nestedInstancesEnable, singleAssetSavePath, multiAssetCo
             # create null as asset output
             singleAssetNullNode = readSingleAssetNode.createOutputNode('null')
             singleAssetNullNode.setName('asset_output_' + str(i))
+            singleAssetNullNode.setComment('High')
+            singleAssetNullNode.setGenericFlag(hou.nodeFlag.DisplayComment,True)
             # add new nodes to array
             newNodes.extend((writeSingleAssetNode, readSingleAssetNode, singleAssetNullNode))
         else:
             # create null as asset output
             singleAssetNullNode = groupdeleteNode.createOutputNode('null')
             singleAssetNullNode.setName('asset_output_' + str(i))
+            singleAssetNullNode.setComment('High')
+            singleAssetNullNode.setGenericFlag(hou.nodeFlag.DisplayComment,True)
             # add new node to array
             newNodes.append(singleAssetNullNode)
 
@@ -116,6 +120,8 @@ def genAssets(rootNode, nestedInstancesEnable, singleAssetSavePath, multiAssetCo
         # create null as proxy asset output
         singleProxyAssetNullNode = referenceProxyNodes[1].createOutputNode('null')
         singleProxyAssetNullNode.setName('asset_proxy_output_' + str(i))
+        singleProxyAssetNullNode.setComment('LOD1')
+        singleProxyAssetNullNode.setGenericFlag(hou.nodeFlag.DisplayComment,True)
         newNodes.append(singleProxyAssetNullNode)
 
         # create polyreduce
@@ -142,6 +148,8 @@ def genAssets(rootNode, nestedInstancesEnable, singleAssetSavePath, multiAssetCo
         # create null as reduced asset output
         singleReducedAssetNullNode = groupdeleteReducedNode.createOutputNode('null')
         singleReducedAssetNullNode.setName('asset_reduced_output_' + str(i))
+        singleReducedAssetNullNode.setComment('LOD0')
+        singleReducedAssetNullNode.setGenericFlag(hou.nodeFlag.DisplayComment,True)
         newNodes.append(singleReducedAssetNullNode)
 
     '''

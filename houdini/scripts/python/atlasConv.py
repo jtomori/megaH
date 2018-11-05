@@ -104,7 +104,7 @@ def genAssets(rootNode, nestedInstancesEnable, singleAssetSavePath, multiAssetCo
         snapProxyPointsNode.parm('snippet').set('int nearpoint = nearpoint("opinput:1", @P);\n@P = point("opinput:1", "P", nearpoint);')
         newNodes.append(snapProxyPointsNode)
 
-        # create reference copies of modifiers
+        # create reference copies of modifiers for proxy setup
         referenceProxyNodes = hou.node(path).copyItems([hou.item(atlasDeformNode.path()), hou.item(megaTransformNode.path())], channel_reference_originals=True)
         referenceProxyNodes[0].setInput(0, snapProxyPointsNode)
         referenceProxyNodes[0].setName('atlas_deform_proxy_' + str(i))
@@ -119,14 +119,28 @@ def genAssets(rootNode, nestedInstancesEnable, singleAssetSavePath, multiAssetCo
         newNodes.append(singleProxyAssetNullNode)
 
         # create polyreduce
-        polyreduceNode = groupdeleteNode.createOutputNode('polyreduce::2.0')
+        polyreduceNode = transformNode.createOutputNode('polyreduce::2.0')
         polyreduceNode.setName('polyreduce_' + str(i))
         polyreduceNode.parm('percentage').set(15)
         polyreduceNode.parm('boundaryweight').set(100)
         newNodes.append(polyreduceNode)
 
+        # create reference copies of modifiers for reduced setup
+        referenceReducedNodes = hou.node(path).copyItems([hou.item(atlasDeformNode.path()), hou.item(megaTransformNode.path())], channel_reference_originals=True)
+        referenceReducedNodes[0].setInput(0, polyreduceNode)
+        referenceReducedNodes[0].setName('atlas_deform_reduced_' + str(i))
+        referenceReducedNodes[0].setColor(gray)
+        referenceReducedNodes[1].setName('megatransform_reduced_' + str(i))
+        newNodes.extend((referenceReducedNodes[0], referenceReducedNodes[1]))
+
+        # create groupdelete reduced
+        groupdeleteReducedNode = referenceReducedNodes[1].createOutputNode('groupdelete')
+        groupdeleteReducedNode.setName('groupdelete_reduced_' + str(i))
+        groupdeleteReducedNode.parm('group1').set('*')
+        newNodes.append(groupdeleteReducedNode)
+
         # create null as reduced asset output
-        singleReducedAssetNullNode = polyreduceNode.createOutputNode('null')
+        singleReducedAssetNullNode = groupdeleteReducedNode.createOutputNode('null')
         singleReducedAssetNullNode.setName('asset_reduced_output_' + str(i))
         newNodes.append(singleReducedAssetNullNode)
 
@@ -334,6 +348,9 @@ def genAssets(rootNode, nestedInstancesEnable, singleAssetSavePath, multiAssetCo
         netbox.addItem(hou.node(path + '/asset_proxy_output_' + str(i)))
 
         netbox.addItem(hou.node(path + '/polyreduce_' + str(i)))
+        netbox.addItem(hou.node(path + '/atlas_deform_reduced_' + str(i)))
+        netbox.addItem(hou.node(path + '/megatransform_reduced_' + str(i)))
+        netbox.addItem(hou.node(path + '/groupdelete_reduced_' + str(i)))
         netbox.addItem(hou.node(path + '/asset_reduced_output_' + str(i)))
         netbox.fitAroundContents()
     '''
@@ -377,14 +394,13 @@ def checkGroups(rootNode):
     newNodes = []
 
     switchNode = hou.node(path).createNode('switch')
-    switchNode.parm('input').setExpression('@Frame')
+    switchNode.parm('input').setExpression('@Frame - 1')
     newNodes.append(switchNode)
 
     groups = [g.name() for g in rootNode.geometry().primGroups()]
     for i, name in enumerate(groups, 1):
         # create blast to isolate group
         blastNode = rootNode.createOutputNode('blast')
-        blastNode.setName('blast_' + str(i))
         blastNode.parm('group').set(name)
         blastNode.parm('negate').set(1)
         newNodes.append(blastNode)

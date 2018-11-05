@@ -70,9 +70,16 @@ def genAssets(rootNode, nestedInstancesEnable, singleAssetSavePath, multiAssetCo
         groupdeleteNode.parm('group1').set('*')
         newNodes.append(groupdeleteNode)
 
+        # create optional polyreduce for High lod
+        optionalPolyreduceNode = groupdeleteNode.createOutputNode('polyreduce::2.0')
+        optionalPolyreduceNode.setName('optional_polyreduce_' + str(i))
+        optionalPolyreduceNode.parm('percentage').set(70)
+        optionalPolyreduceNode.bypass(1)
+        newNodes.append(optionalPolyreduceNode)
+
         if nestedInstancesEnable == 1:
             # create single asset write file node
-            writeSingleAssetNode = groupdeleteNode.createOutputNode('file')
+            writeSingleAssetNode = optionalPolyreduceNode.createOutputNode('file')
             writeSingleAssetNode.setName('write_single_asset_' + str(i))
             writeSingleAssetNode.parm('filemode').set(2)
             writeSingleAssetNode.parm('file').set(singleAssetSavePath + '_' + str(i) + '_High.bgeo.sc')
@@ -94,7 +101,7 @@ def genAssets(rootNode, nestedInstancesEnable, singleAssetSavePath, multiAssetCo
             newNodes.extend((writeSingleAssetNode, readSingleAssetNode, singleAssetNullNode))
         else:
             # create null as asset output
-            singleAssetNullNode = groupdeleteNode.createOutputNode('null')
+            singleAssetNullNode = optionalPolyreduceNode.createOutputNode('null')
             singleAssetNullNode.setName('asset_output_' + str(i))
             singleAssetNullNode.setComment('High')
             singleAssetNullNode.setGenericFlag(hou.nodeFlag.DisplayComment,True)
@@ -125,28 +132,13 @@ def genAssets(rootNode, nestedInstancesEnable, singleAssetSavePath, multiAssetCo
         newNodes.append(singleProxyAssetNullNode)
 
         # create polyreduce
-        polyreduceNode = transformNode.createOutputNode('polyreduce::2.0')
+        polyreduceNode = groupdeleteNode.createOutputNode('polyreduce::2.0')
         polyreduceNode.setName('polyreduce_' + str(i))
         polyreduceNode.parm('percentage').set(15)
-        polyreduceNode.parm('boundaryweight').set(100)
         newNodes.append(polyreduceNode)
 
-        # create reference copies of modifiers for reduced setup
-        referenceReducedNodes = hou.node(path).copyItems([hou.item(atlasDeformNode.path()), hou.item(megaTransformNode.path())], channel_reference_originals=True)
-        referenceReducedNodes[0].setInput(0, polyreduceNode)
-        referenceReducedNodes[0].setName('atlas_deform_reduced_' + str(i))
-        referenceReducedNodes[0].setColor(gray)
-        referenceReducedNodes[1].setName('megatransform_reduced_' + str(i))
-        newNodes.extend((referenceReducedNodes[0], referenceReducedNodes[1]))
-
-        # create groupdelete reduced
-        groupdeleteReducedNode = referenceReducedNodes[1].createOutputNode('groupdelete')
-        groupdeleteReducedNode.setName('groupdelete_reduced_' + str(i))
-        groupdeleteReducedNode.parm('group1').set('*')
-        newNodes.append(groupdeleteReducedNode)
-
         # create null as reduced asset output
-        singleReducedAssetNullNode = groupdeleteReducedNode.createOutputNode('null')
+        singleReducedAssetNullNode = polyreduceNode.createOutputNode('null')
         singleReducedAssetNullNode.setName('asset_reduced_output_' + str(i))
         singleReducedAssetNullNode.setComment('LOD0')
         singleReducedAssetNullNode.setGenericFlag(hou.nodeFlag.DisplayComment,True)
@@ -347,6 +339,7 @@ def genAssets(rootNode, nestedInstancesEnable, singleAssetSavePath, multiAssetCo
         netbox.addItem(hou.node(path + '/atlas_deform_' + str(i)))
         netbox.addItem(hou.node(path + '/megatransform_' + str(i)))
         netbox.addItem(hou.node(path + '/groupdelete_' + str(i)))
+        netbox.addItem(hou.node(path + '/optional_polyreduce_' + str(i)))
         netbox.addItem(hou.node(path + '/asset_output_' + str(i)))
 
         netbox.addItem(hou.node(path + '/matchsize_' + str(i)))
@@ -356,9 +349,6 @@ def genAssets(rootNode, nestedInstancesEnable, singleAssetSavePath, multiAssetCo
         netbox.addItem(hou.node(path + '/asset_proxy_output_' + str(i)))
 
         netbox.addItem(hou.node(path + '/polyreduce_' + str(i)))
-        netbox.addItem(hou.node(path + '/atlas_deform_reduced_' + str(i)))
-        netbox.addItem(hou.node(path + '/megatransform_reduced_' + str(i)))
-        netbox.addItem(hou.node(path + '/groupdelete_reduced_' + str(i)))
         netbox.addItem(hou.node(path + '/asset_reduced_output_' + str(i)))
         netbox.fitAroundContents()
     '''

@@ -50,7 +50,7 @@ class Utils(object):
 	@staticmethod	
 	def getFilesRecursivelyByMask(path, mask):
 		"""
-		returns a list of files recursively found in a folder and matching a pattern
+		returns a list of file paths recursively found in a folder and matching a pattern
 		"""
 		matches = []
 		for root, dirnames, filenames in os.walk(path):
@@ -70,6 +70,19 @@ class Utils(object):
 				folders.append(os.path.normpath(root))
 		return folders
 	
+	@staticmethod
+	def getFoldersPathsContainingJson(path):
+		"""
+		return a list of recursively found folders that contain json file (exluding input path since it contains index.json and biotopes.json)
+		"""
+		folders = []
+		for root, dirs, files in os.walk(path):
+			for filename in files:
+				if filename.endswith("json"):
+					if root != path:
+						folders.append(os.path.normpath(root))
+		return folders
+
 	@staticmethod
 	def getBestTextureFormat(ext_list, tex_list):
 		"""
@@ -164,7 +177,7 @@ class BuildAssetsHierarchy(MegaInit):
 		"""
 		build a dict containing all the assets and needed information
 		"""
-		asset_folders_paths = Utils.getLeafFoldersPaths(self.libPath_3d)
+		asset_folders_paths = Utils.getFoldersPathsContainingJson(self.libPath_3d)
 		#asset_folders_names = [] # not used
 
 		# create a dictionary with folder names as keys and folder full paths as values
@@ -251,11 +264,15 @@ class BuildAssetsHierarchy(MegaInit):
 
 		# delete cache from hou.session
 		try:
-			log.debug("Deleting library index cache from hou.session")
 			del hou.session.__dict__["mega_index"]
+			log.debug("Deleting library index cache from hou.session")
 		except KeyError:
 			log.debug("Hou.session has no library index cache, not deleting anything")
 		
+		# reload mega load hda module
+		megaType = hou.nodeType(hou.sopNodeTypeCategory(), 'jt_megaLoad_v3')
+		megaType.hdaModule()._HDAModule__reload()
+
 		end = time.time()
 		hou.ui.displayMessage("Assets indexing done in: %0.4f seconds" % (end-start), title="Done")
 	
@@ -542,7 +559,7 @@ class ProcessAssets(object):
 	a class managing cracking process
 	"""
 	@staticmethod
-	def convertInFilePathCracked(node):
+	def convertInFilePathCracked(node=None):
 		"""
 		gets a path, extension from param from parent and replaces extension, prepends LOD with current asset number
 		"""
@@ -580,6 +597,39 @@ class ProcessAssets(object):
 		return out_path.replace("\\", "/")
 
 	@staticmethod
+	def convertInFilePath3DPlant(node=None):
+		"""
+		gets a path, extension from param from parent and replaces extension, this is for 3dplant assets, where no change to naming is needed, only extension needs to be replaces
+		"""
+		if not node:
+			node = hou.pwd()
+
+		extension = ".bgeo.sc"
+		parent_node = node.parent()
+
+		try:
+			in_path = parent_node.parm("file").eval()
+		except AttributeError:
+			raise AttributeError("'file' parameter not found")
+
+		try:
+			in_ext = parent_node.parent().parent().parm("ext").eval()
+		except AttributeError:
+			try:
+				in_ext = parent_node.parent().parm("ext").eval()
+			except AttributeError:
+				raise AttributeError("'ext' parameter not found")
+		
+		out_path = in_path
+		in_ext_list = in_ext.split(" ")
+		for ext_current in in_ext_list:
+			out_path = out_path.replace(ext_current, extension)
+
+		log.debug( "frame: {}, file: {}".format( int( hou.frame() ), out_path ) )
+
+		return out_path.replace("\\", "/")
+
+	@staticmethod
 	def getDummyPath():
 		"""
 		generates a dummy path which is used for all ROPs to write to an empty file
@@ -594,6 +644,10 @@ class ProcessAssets(object):
 	def generateProcessAssetsNodes(node):
 		"""
 		generates child Process Asset SOP nodes and sets parameter, also creates Fetch ROPs pointing to them and merges them together
+
+		it generates two assets:
+			mega_process_asset for classic megascans
+			mega_process_asset_3dplant for 3dplant assets, which have different conversion setup, it is used when "3dplant" folder is present in folder path
 		"""
 		if not node:
 			node = hou.pwd()
@@ -622,7 +676,11 @@ class ProcessAssets(object):
 		fetch_nodes = []
 
 		for file_current in files:
-			node = sopnet.createNode("mega_process_asset")
+			if "3dplant" in os.path.normpath(file_current).split(os.sep):
+				node = sopnet.createNode("mega_process_asset_3dplant")
+			else:
+				node = sopnet.createNode("mega_process_asset")
+			
 			node.parm("file").set(file_current)
 
 			fetch = ropnet.createNode("fetch")
@@ -649,7 +707,14 @@ class ProcessAssets(object):
 		parms = node.parm("folders").multiParmInstances()
 
 		for parm in parms:
-			folder_paths.append(parm.eval())
+			parm_path = parm.eval()
+			if os.path.normpath(parm_path).split(os.sep)[-1].lower().startswith("var"):
+				fixed_path = os.sep.join( os.path.normpath(parm_path).split(os.sep)[:-1] )
+				folder_paths.append(fixed_path)
+			else:
+				folder_paths.append(parm_path)
+
+		folder_paths = list(set(folder_paths))
 
 		try:
 			import batch_convert

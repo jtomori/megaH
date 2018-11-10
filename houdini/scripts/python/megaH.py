@@ -1,4 +1,5 @@
 import os
+import re
 import hou
 import time
 import glob
@@ -41,7 +42,7 @@ class Utils(object):
 	@staticmethod	
 	def getFilesByMask(path, mask):
 		"""
-		return list of files matching mask inside specified folder
+		return list of files and folders matching mask inside of a specified folder
 		"""
 		os.chdir(path)
 		lods = [file for file in glob.glob("*") if fnmatch.fnmatchcase(file, mask)]
@@ -104,6 +105,13 @@ class Utils(object):
 			return idx
 		else:
 			return None
+	
+	@staticmethod
+	def isPath3DPlant(path):
+		"""
+		returns True or False depending if folder path is 3dplant asset type - if one of the folders in the path contains "3dplant"
+		"""
+		return "3dplant" in os.path.normpath(path).split(os.sep)
 
 class MegaInit(object):
 	"""
@@ -116,10 +124,11 @@ class MegaInit(object):
 		self.libPath = hou.getenv("MEGA_LIB") # a path pointing to root folder with assets to be indexed
 		self.libPath = os.path.normpath(self.libPath) # normalize it just to be sure
 		self.libPath_3d = os.path.join(self.libPath, "3d").replace("\\", "/") # append 3d folder which contains actual geometry and convert to linux-style
-		self.libHierarchyJson = os.path.join(self.libPath_3d, "index.json").replace("\\", "/") # a path to output file with indexed data (linux-style)
-		self.libBiotopesJson = os.path.join(self.libPath_3d, "biotopes.json").replace("\\", "/") # a path to output file with indexed data (linux-style)
+		self.libPath_3dplant = os.path.join(self.libPath, "3dplant").replace("\\", "/") # append 3dplant folder which contains 3dplant geometry and convert to linux-style		
+		self.libHierarchyJson = os.path.join(self.libPath, "index.json").replace("\\", "/") # a path to output file with indexed data (linux-style)
+		self.libBiotopesJson = os.path.join(self.libPath, "biotopes.json").replace("\\", "/") # a path to output file with indexed data (linux-style)
 		self.extMask = "*.bgeo.sc" # extension of files (converted) to be indexed
-		self.textures = ["Albedo", "Bump", "Cavity", "Displacement", "Gloss", "NormalBump", "Normal", "Roughness", "Specular", "Opacity", "Fuzz"] # list of all possible textures, there should be corresponding parameters on the node (with the same name, but first letter is lowercase)
+		self.textures = ["Albedo", "Bump", "Cavity", "Displacement", "Gloss", "NormalBump", "Normal", "Roughness", "Specular", "Opacity", "Fuzz", "Translucency"] # list of all possible textures, there should be corresponding parameters on the node (with the same name, but first letter is lowercase)
 		self.shader = hou.getenv("MEGA_SHADER")
 		self.megaLoad = 'jt_megaLoad_v3'
 
@@ -169,7 +178,8 @@ class BuildAssetsHierarchy(MegaInit):
 				"normalBump": "Sctr_mushroom_brown_T_qdzrT_4K_NormalBump.jpg", 
 				"opacity": "", 
 				"roughness": "Sctr_mushroom_brown_T_qdzrT_4K_Roughness.jpg", 
-				"specular": "Sctr_mushroom_brown_T_qdzrT_4K_Specular.jpg"
+				"specular": "Sctr_mushroom_brown_T_qdzrT_4K_Specular.jpg",
+				"transculency" : ""
 			}
 		}
 	"""
@@ -177,32 +187,48 @@ class BuildAssetsHierarchy(MegaInit):
 		"""
 		build a dict containing all the assets and needed information
 		"""
-		asset_folders_paths = Utils.getFoldersPathsContainingJson(self.libPath_3d)
-		#asset_folders_names = [] # not used
+		asset_folders_paths = Utils.getFoldersPathsContainingJson(self.libPath_3d) + Utils.getFoldersPathsContainingJson(self.libPath_3dplant)
 
 		# create a dictionary with folder names as keys and folder full paths as values
 		index_dict = { os.path.basename( os.path.normpath(path) ):path for path in asset_folders_paths }
 		
 		for key, value in index_dict.iteritems():
-			# get all asset files inside of a dir
-			dir_files = Utils.getFilesByMask(value, self.extMask)
-			assets = dir_files
 			folder_path = value
 
-			assets = [ a.split("_")[-2] for a in assets ] # keep only asset number
-			assets = list( set(assets) )
+			if Utils.isPath3DPlant(value):
+				var_folders = Utils.getFilesByMask(value, "Var*")
+				var_numbers = [int(re.search('\d+', folder).group()) for folder in var_folders]
+				
+				assets_dict = {folder:"" for folder in var_numbers}
 
-			# generate a dict of assets - LOD as a key, file name as a value
-			assets_dict = {}
-			for asset in assets:
-				lods_dict = {}
-				matching_lods = fnmatch.filter(dir_files, "*_{}_*".format(asset) )
+				for variation in assets_dict.keys():
+					var_files = Utils.getFilesByMask("{}/Var{}".format(folder_path, variation), self.extMask)
+					lods_dict = {}
 
-				for lod in matching_lods:
-					lod_key = lod.split(".")[0].split("_")[-1]
-					lods_dict[lod_key] = lod
+					for var_file in var_files:
+						lod = var_file.split(".")[0].split("_")[-1]
+						lods_dict[lod] = "Var{}/{}".format(variation, var_file)
+					
+					assets_dict[variation] = lods_dict
+			else:
+				# get all asset files inside of a dir
+				dir_files = Utils.getFilesByMask(value, self.extMask)
+				assets = dir_files
 
-				assets_dict[asset] = lods_dict
+				assets = [ a.split("_")[-2] for a in assets ] # keep only asset number
+				assets = list( set(assets) )
+
+				# generate a dict of assets - LOD as a key, file name as a value
+				assets_dict = {}
+				for asset in assets:
+					lods_dict = {}
+					matching_lods = fnmatch.filter(dir_files, "*_{}_*".format(asset) )
+
+					for lod in matching_lods:
+						lod_key = lod.split(".")[0].split("_")[-1]
+						lods_dict[lod_key] = lod
+
+					assets_dict[asset] = lods_dict
 			
 			# move the whole dict into another dict - for the future, it will enable to store more information without breaking the tool
 			asset_dict = {"assets" : assets_dict}
@@ -237,7 +263,7 @@ class BuildAssetsHierarchy(MegaInit):
 			asset_dict["environment"] = environment
 
 			# add texture information
-			tex_dict = self.findTextures(path=folder_path)
+			tex_dict = self.findTextures(path=folder_path, plant=Utils.isPath3DPlant(value))
 			asset_dict["textures"] = tex_dict
 
 			# replace folder path with a dict of assets
@@ -276,7 +302,7 @@ class BuildAssetsHierarchy(MegaInit):
 		end = time.time()
 		hou.ui.displayMessage("Assets indexing done in: %0.4f seconds" % (end-start), title="Done")
 	
-	def findTextures(self, path):
+	def findTextures(self, path, plant=False):
 		"""
 		finds textures in specified path, returns a dict, where keys are names of parameters and values are texture paths
 		"""
@@ -297,7 +323,11 @@ class BuildAssetsHierarchy(MegaInit):
 			if tex == "Bump":
 				pattern = "*_" + tex + "*"
 
-			files = Utils.getFilesByMask(path, pattern)
+			if plant:
+				files = Utils.getFilesByMask("{}/Textures/Atlas".format(path), pattern)
+			else:
+				files = Utils.getFilesByMask(path, pattern)
+			
 			picked_file = ""
 
 			order = ["jpg", "tif", "png", "exr", "rat"] # ascending priority list of extensions to be picked
@@ -334,6 +364,9 @@ class BuildAssetsHierarchy(MegaInit):
 			# this manages the case, when the textures are pre-converted to mipmapped formats and there is only one key in the dict for normal / normalBump tex
 			if len(picked_file) == 1 and isinstance(picked_file, dict):
 				picked_file = picked_file[ picked_file.keys()[0] ]
+
+			if plant:
+				picked_file = "Textures/Atlas/{}".format(picked_file)
 
 			tex_dict[key] = picked_file
 		
@@ -676,7 +709,7 @@ class ProcessAssets(object):
 		fetch_nodes = []
 
 		for file_current in files:
-			if "3dplant" in os.path.normpath(file_current).split(os.sep):
+			if Utils.isPath3DPlant(file_current):
 				node = sopnet.createNode("mega_process_asset_3dplant")
 			else:
 				node = sopnet.createNode("mega_process_asset")

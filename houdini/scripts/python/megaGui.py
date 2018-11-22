@@ -256,8 +256,10 @@ class MegaView(QtWidgets.QWidget, MegaInit):
                 # for every asset in assets create megaLoad node and set its parms
                 masterShaderPath = ""
                 for asset in xrange(len(assets)):
-                    #print 'processing asset' + str(asset)
-                    meganodeObj = hou.node(path).createNode("jt_mega_load_obj")
+                    if self.assetsIndex[pack]["3dplant"]:
+                        meganodeObj = hou.node(path).createNode("jt_mega_load_pl3d_obj")
+                    else:
+                        meganodeObj = hou.node(path).createNode("jt_mega_load_obj")
                     if asset == 0:
                         meganodeObj.moveToGoodPosition(relative_to_inputs=True, move_inputs=False, move_outputs=False, move_unconnected=False)
                         position = meganodeObj.position()

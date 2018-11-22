@@ -266,6 +266,9 @@ class BuildAssetsHierarchy(MegaInit):
 			tex_dict = self.findTextures(path=folder_path, plant=Utils.isPath3DPlant(value))
 			asset_dict["textures"] = tex_dict
 
+			# adds 3dplant information
+			asset_dict["3dplant"] = Utils.isPath3DPlant(value)
+
 			# replace folder path with a dict of assets
 			index_dict[key] = asset_dict
 

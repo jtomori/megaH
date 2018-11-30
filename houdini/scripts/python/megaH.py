@@ -137,49 +137,71 @@ class BuildAssetsHierarchy(MegaInit):
 	generates and writes a dictionary with hierarchy of all megascans assets and their respective LODs
 
 	one key of dictionary looks like this
-		"Debris_Nature_Brown_qdzrT": {
+		"Plants_3d_qmBr2": {
+			"3dplant": true, 
 			"assets": {
-				"0": {
-					"LOD0": "Sctr_mushroom_brown_T_qdzrT_0_LOD0.bgeo.sc", 
-					"LOD1": "Sctr_mushroom_brown_T_qdzrT_0_LOD1.bgeo.sc", 
-					"LOD2": "Sctr_mushroom_brown_T_qdzrT_0_LOD2.bgeo.sc"
-				}, 
 				"1": {
-					"LOD0": "Sctr_mushroom_brown_T_qdzrT_1_LOD0.bgeo.sc", 
-					"LOD1": "Sctr_mushroom_brown_T_qdzrT_1_LOD1.bgeo.sc", 
-					"LOD2": "Sctr_mushroom_brown_T_qdzrT_1_LOD2.bgeo.sc"
+					"LOD0": "Var1/Var1_LOD0.bgeo.sc", 
+					"LOD1": "Var1/Var1_LOD1.bgeo.sc", 
+					"LOD2": "Var1/Var1_LOD2.bgeo.sc", 
+					"LOD3": "Var1/Var1_LOD3.bgeo.sc"
+				}, 
+				"2": {
+					"LOD0": "Var2/Var2_LOD0.bgeo.sc", 
+					"LOD1": "Var2/Var2_LOD1.bgeo.sc", 
+					"LOD2": "Var2/Var2_LOD2.bgeo.sc", 
+					"LOD3": "Var2/Var2_LOD3.bgeo.sc"
+				}, 
+				"3": {
+					"LOD0": "Var3/Var3_LOD0.bgeo.sc", 
+					"LOD1": "Var3/Var3_LOD1.bgeo.sc", 
+					"LOD2": "Var3/Var3_LOD2.bgeo.sc", 
+					"LOD3": "Var3/Var3_LOD3.bgeo.sc"
 				}
 			}, 
 			"environment": {
-				"biome": "temperate-forest", 
-				"region": "Oceania"
+				"biome": "mediterranean-forest", 
+				"region": "Asia"
 			}, 
-			"path": "$MEGA_LIB/3d/Debris_Nature_Brown_qdzrT", 
-			"preview_image": "Debris_Nature_Brown_qdzrT_3d_Preview.png", 
+			"path": "$MEGA_LIB/3dplant/Plants_3d_qmBr2", 
+			"preview_image": "Plants_3d_qmBr2_3dplant_Preview.png", 
 			"tags": [
-				"flat", 
-				"fungi", 
-				"organic", 
-				"scatter", 
-				"mushroom"
+				"grass", 
+				"green", 
+				"blades", 
+				"cluster", 
+				"patch", 
+				"scatter"
 			], 
 			"textures": {
-				"albedo": "Sctr_mushroom_brown_T_qdzrT_4K_Albedo.jpg", 
-				"bump": "Sctr_mushroom_brown_T_qdzrT_4K_Bump.jpg", 
-				"cavity": "Sctr_mushroom_brown_T_qdzrT_4K_Cavity.jpg", 
-				"displacement": "Sctr_mushroom_brown_T_qdzrT_4K_Displacement.exr", 
-				"fuzz": "", 
-				"gloss": "Sctr_mushroom_brown_T_qdzrT_4K_Gloss.jpg", 
-				"normal": {
-					"LOD0": "Sctr_mushroom_brown_T_qdzrT_4K_Normal_LOD0.jpg", 
-					"LOD1": "Sctr_mushroom_brown_T_qdzrT_4K_Normal_LOD1.jpg", 
-					"LOD2": "Sctr_mushroom_brown_T_qdzrT_4K_Normal_LOD2.jpg"
+				"2K": {
+					"albedo": "Textures/Atlas/qheqG_2K_Albedo.jpg", 
+					"bump": "Textures/Atlas/qheqG_2K_Bump.jpg", 
+					"cavity": "Textures/Atlas/", 
+					"displacement": "Textures/Atlas/qheqG_2K_Displacement.exr", 
+					"fuzz": "Textures/Atlas/", 
+					"gloss": "Textures/Atlas/qheqG_2K_Gloss.jpg", 
+					"normal": "Textures/Atlas/qheqG_2K_Normal.jpg", 
+					"normalBump": "Textures/Atlas/", 
+					"opacity": "Textures/Atlas/qheqG_2K_Opacity.jpg", 
+					"roughness": "Textures/Atlas/qheqG_2K_Roughness.jpg", 
+					"specular": "Textures/Atlas/qheqG_2K_Specular.jpg", 
+					"translucency": "Textures/Atlas/qheqG_2K_Translucency.jpg"
 				}, 
-				"normalBump": "Sctr_mushroom_brown_T_qdzrT_4K_NormalBump.jpg", 
-				"opacity": "", 
-				"roughness": "Sctr_mushroom_brown_T_qdzrT_4K_Roughness.jpg", 
-				"specular": "Sctr_mushroom_brown_T_qdzrT_4K_Specular.jpg",
-				"transculency" : ""
+				"4K": {
+					"albedo": "Textures/Atlas/qheqG_4K_Albedo.jpg", 
+					"bump": "Textures/Atlas/qheqG_4K_Bump.jpg", 
+					"cavity": "Textures/Atlas/", 
+					"displacement": "Textures/Atlas/qheqG_4K_Displacement.exr", 
+					"fuzz": "Textures/Atlas/", 
+					"gloss": "Textures/Atlas/qheqG_4K_Gloss.jpg", 
+					"normal": "Textures/Atlas/qheqG_4K_Normal.jpg", 
+					"normalBump": "Textures/Atlas/", 
+					"opacity": "Textures/Atlas/qheqG_4K_Opacity.jpg", 
+					"roughness": "Textures/Atlas/qheqG_4K_Roughness.jpg", 
+					"specular": "Textures/Atlas/qheqG_4K_Specular.jpg", 
+					"translucency": "Textures/Atlas/qheqG_4K_Translucency.jpg"
+				}
 			}
 		}
 	"""
@@ -194,8 +216,9 @@ class BuildAssetsHierarchy(MegaInit):
 		
 		for key, value in index_dict.iteritems():
 			folder_path = value
+			is3dplant = Utils.isPath3DPlant(value)
 
-			if Utils.isPath3DPlant(value):
+			if is3dplant:
 				var_folders = Utils.getFilesByMask(value, "Var*")
 				var_numbers = [int(re.search('\d+', folder).group()) for folder in var_folders]
 				
@@ -263,11 +286,15 @@ class BuildAssetsHierarchy(MegaInit):
 			asset_dict["environment"] = environment
 
 			# add texture information
-			tex_dict = self.findTextures(path=folder_path, plant=Utils.isPath3DPlant(value))
+			tex_folder = folder_path
+			if is3dplant:
+				tex_folder = folder_path + "/Textures/Atlas"
+
+			tex_dict = self.findTextures(path=tex_folder, plant=is3dplant)
 			asset_dict["textures"] = tex_dict
 
 			# adds 3dplant information
-			asset_dict["3dplant"] = Utils.isPath3DPlant(value)
+			asset_dict["3dplant"] = is3dplant
 
 			# replace folder path with a dict of assets
 			index_dict[key] = asset_dict
@@ -307,15 +334,12 @@ class BuildAssetsHierarchy(MegaInit):
 	
 	def findTextures(self, path, plant=False):
 		"""
-		finds textures in specified path, returns a dict, where keys are names of parameters and values are texture paths
+		finds textures in specified path, returns a nested dict, where first level keys is resolution, the second level keys are names of parameters and values are texture paths
 		"""
-		tex_dict = {}
-		for tex in self.textures:
-			# first letter to lowercase
-			key = list(tex)
-			key[0] = key[0].lower()
-			key = "".join(key)
+		res_dict = {}
 
+		all_textures = []
+		for tex in self.textures:
 			pattern = "*" + tex + ".*"
 
 			# do the pattern for normal map
@@ -326,58 +350,90 @@ class BuildAssetsHierarchy(MegaInit):
 			if tex == "Bump":
 				pattern = "*_" + tex + "*"
 
-			if plant:
-				files = Utils.getFilesByMask("{}/Textures/Atlas".format(path), pattern)
-			else:
-				files = Utils.getFilesByMask(path, pattern)
-			
-			picked_file = ""
+			all_textures += Utils.getFilesByMask(path, pattern)
 
-			order = ["jpg", "tif", "png", "exr", "rat"] # ascending priority list of extensions to be picked
-			# process normals differently from other textures
-			if tex == "Normal" and len(files) > 1:
-				picked_file = {}
-				# find unique LODs found
-				lods = [f.split(".")[0].split("_")[-1] for f in files]
-				lods = list( set(lods) )
+		all_res = []
+		for tex in all_textures:
+			res = re.search("_[0-9]K_", tex)
+			if res:
+				all_res.append(res.group())
+		
+		all_res = list( set(all_res) )
+
+		for res in all_res:
+			res_textures = filter(lambda t: fnmatch.fnmatch( t, "*{}*".format(res) ), all_textures)
+			tex_dict = {}
+
+			res_tag = res.replace("_","")
+
+			for tex in self.textures:
+				# first letter to lowercase
+				key = list(tex)
+				key[0] = key[0].lower()
+				key = "".join(key)
+
+				pattern = "*" + tex + ".*"
+
+				# do the pattern for normal map
+				if tex == "Normal":
+					pattern = "*" + tex + "[_.]*"
 				
-				# from all LODs found, create a dict like this "LOD0" : ["texture_LOD0.jpg", ...]
-				for lod in lods:
-					picked_file[lod] = fnmatch.filter( files, "*{}*".format(lod) )
+				# do the pattern for bump map (to exclude NormalBump)
+				if tex == "Bump":
+					pattern = "*_" + tex + "*"
+
+				#files = Utils.getFilesByMask(path, pattern)
+				files = filter(lambda t: fnmatch.fnmatch(t, pattern), res_textures)
 				
-				# our values can be lists (in case there are normal maps with multiple extensions), bellow code handles it
-				for lod, files_list in picked_file.iteritems():
-					if len(files_list) == 1:
-						picked_file[lod] = files_list[0]
-					elif len(files_list) > 1:
-						idx = Utils.getBestTextureFormat(order, files_list)
-						picked_file[lod] = files_list[idx]
-					else:
-						picked_file[lod] = ""
-			else:
-				# convert list of found texture candidates to the most suitable one :)
-				if len(files) > 1:
-					idx = Utils.getBestTextureFormat(order, files)
-					picked_file = files[idx]
-				elif len(files) == 1:
-					picked_file = files[0]
+				picked_file = ""
+
+				order = ["jpg", "tif", "png", "exr", "rat"] # ascending priority list of extensions to be picked
+				# process normals differently from other textures
+				if tex == "Normal" and len(files) > 1:
+					picked_file = {}
+					# find unique LODs found
+					lods = [f.split(".")[0].split("_")[-1] for f in files]
+					lods = list( set(lods) )
+					
+					# from all LODs found, create a dict like this "LOD0" : ["texture_LOD0.jpg", ...]
+					for lod in lods:
+						picked_file[lod] = fnmatch.filter( files, "*{}*".format(lod) )
+					
+					# our values can be lists (in case there are normal maps with multiple extensions), bellow code handles it
+					for lod, files_list in picked_file.iteritems():
+						if len(files_list) == 1:
+							picked_file[lod] = files_list[0]
+						elif len(files_list) > 1:
+							idx = Utils.getBestTextureFormat(order, files_list)
+							picked_file[lod] = files_list[idx]
+						else:
+							picked_file[lod] = ""
 				else:
-					picked_file = ""
+					# convert list of found texture candidates to the most suitable one :)
+					if len(files) > 1:
+						idx = Utils.getBestTextureFormat(order, files)
+						picked_file = files[idx]
+					elif len(files) == 1:
+						picked_file = files[0]
+					else:
+						picked_file = ""
 
-			# this manages the case, when the textures are pre-converted to mipmapped formats and there is only one key in the dict for normal / normalBump tex
-			if len(picked_file) == 1 and isinstance(picked_file, dict):
-				picked_file = picked_file[ picked_file.keys()[0] ]
+				# this manages the case, when the textures are pre-converted to mipmapped formats and there is only one key in the dict for normal / normalBump tex
+				if len(picked_file) == 1 and isinstance(picked_file, dict):
+					picked_file = picked_file[ picked_file.keys()[0] ]
 
-			if plant and picked_file != "":
-				picked_file = "Textures/Atlas/{}".format(picked_file)
+				if plant:
+					picked_file = "Textures/Atlas/{}".format(picked_file)
 
-			tex_dict[key] = picked_file
+				tex_dict[key] = picked_file
+			
+			# if normalBump texture does not exist, then use universal normal
+			if tex_dict["normalBump"] == "":
+				tex_dict["normalBump"] = tex_dict["normal"]
+			
+			res_dict[res_tag] = tex_dict
 		
-		# if normalBump texture does not exist, then use universal normal
-		if tex_dict["normalBump"] == "":
-			tex_dict["normalBump"] = tex_dict["normal"]
-		
-		return tex_dict
+		return res_dict
 
 class MegaLoad(MegaInit):
 	"""
@@ -461,6 +517,26 @@ class MegaLoad(MegaInit):
 
 		return menu_lods
 
+	def resMenuList(self, node=None):
+		"""
+		returns a houdini-menu style list of available texture resolutions for selected pack
+		"""
+		if not node:
+			node = hou.pwd()
+
+		# eval asset_pack parameter and pick corresponding value from index dict
+		asset_pack_number = node.parm("asset_pack").eval()
+		asset_pack_items = node.parm("asset_pack").menuItems()
+		asset_pack = asset_pack_items[asset_pack_number]
+
+		res_dict = self.assetsIndex[asset_pack]["textures"]
+
+		res_list = res_dict.keys()
+		res_list.sort()
+		res_list = [str(x) for pair in zip(res_list,res_list) for x in pair]
+
+		return res_list
+
 	def updateParms(self):
 		"""
 		updates mega load parameters with asset paths, lods, textures and stuff
@@ -477,14 +553,18 @@ class MegaLoad(MegaInit):
 		asset_lod_labels = node.parm("asset_lod").menuLabels()
 		display_lod_number = node.parm("display_lod_level").eval()
 		display_lod_labels = node.parm("display_lod_level").menuLabels()
+		tex_rest_number = node.parm("tex_res").eval()
+		tex_rest_labels = node.parm("tex_res").menuLabels()
 
 		asset_pack = asset_pack_items[asset_pack_number]
 
+		
 		# in case asset changes and there are not enough of LODs in the list
 		try:
 			asset = asset_items[asset_number]
 			lod = asset_lod_labels[asset_lod_number]
 			display_lod = display_lod_labels[display_lod_number]
+			tex_res = tex_rest_labels[tex_rest_number]
 		except IndexError:
 			node.parm("asset").set(0)
 			asset = asset_items[0]
@@ -492,6 +572,8 @@ class MegaLoad(MegaInit):
 			lod = asset_lod_labels[0]
 			node.parm("display_lod_level").set( len(display_lod_labels)-1 )
 			display_lod = display_lod_labels[ len(display_lod_labels)-1 ]
+			node.parm("tex_res").set(0)
+			tex_res = tex_rest_labels[0]
 		
 		asset_pack_dict = self.assetsIndex[asset_pack]
 		lods_dict = asset_pack_dict["assets"][asset]
@@ -509,7 +591,7 @@ class MegaLoad(MegaInit):
 		asset_lod_number = "High" if lod == "High" else lod
 
 		# determine texture paths
-		tex_dict = asset_pack_dict["textures"]
+		tex_dict = asset_pack_dict["textures"][tex_res]
 		for key, value in tex_dict.iteritems():
 			# if doing normals, then select corresponding one
 			if isinstance(value, dict):

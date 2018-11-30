@@ -368,7 +368,7 @@ class BuildAssetsHierarchy(MegaInit):
 			if len(picked_file) == 1 and isinstance(picked_file, dict):
 				picked_file = picked_file[ picked_file.keys()[0] ]
 
-			if plant:
+			if plant and picked_file != "":
 				picked_file = "Textures/Atlas/{}".format(picked_file)
 
 			tex_dict[key] = picked_file

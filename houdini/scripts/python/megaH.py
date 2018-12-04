@@ -1,4 +1,5 @@
 import os
+import re
 import hou
 import time
 import glob
@@ -41,7 +42,7 @@ class Utils(object):
 	@staticmethod	
 	def getFilesByMask(path, mask):
 		"""
-		return list of files matching mask inside specified folder
+		return list of files and folders matching mask inside of a specified folder
 		"""
 		os.chdir(path)
 		lods = [file for file in glob.glob("*") if fnmatch.fnmatchcase(file, mask)]
@@ -50,7 +51,7 @@ class Utils(object):
 	@staticmethod	
 	def getFilesRecursivelyByMask(path, mask):
 		"""
-		returns a list of files recursively found in a folder and matching a pattern
+		returns a list of file paths recursively found in a folder and matching a pattern
 		"""
 		matches = []
 		for root, dirnames, filenames in os.walk(path):
@@ -69,7 +70,7 @@ class Utils(object):
 			if not dirs:
 				folders.append(os.path.normpath(root))
 		return folders
-
+	
 	@staticmethod
 	def getFoldersPathsContainingJson(path):
 		"""
@@ -82,7 +83,7 @@ class Utils(object):
 					if root != path:
 						folders.append(os.path.normpath(root))
 		return folders
-	
+
 	@staticmethod
 	def getBestTextureFormat(ext_list, tex_list):
 		"""
@@ -104,6 +105,13 @@ class Utils(object):
 			return idx
 		else:
 			return None
+	
+	@staticmethod
+	def isPath3DPlant(path):
+		"""
+		returns True or False depending if folder path is 3dplant asset type - if one of the folders in the path contains "3dplant"
+		"""
+		return "3dplant" in os.path.normpath(path).split(os.sep)
 
 class MegaInit(object):
 	"""
@@ -116,10 +124,11 @@ class MegaInit(object):
 		self.libPath = hou.getenv("MEGA_LIB") # a path pointing to root folder with assets to be indexed
 		self.libPath = os.path.normpath(self.libPath) # normalize it just to be sure
 		self.libPath_3d = os.path.join(self.libPath, "3d").replace("\\", "/") # append 3d folder which contains actual geometry and convert to linux-style
-		self.libHierarchyJson = os.path.join(self.libPath_3d, "index.json").replace("\\", "/") # a path to output file with indexed data (linux-style)
-		self.libBiotopesJson = os.path.join(self.libPath_3d, "biotopes.json").replace("\\", "/") # a path to output file with indexed data (linux-style)
+		self.libPath_3dplant = os.path.join(self.libPath, "3dplant").replace("\\", "/") # append 3dplant folder which contains 3dplant geometry and convert to linux-style		
+		self.libHierarchyJson = os.path.join(self.libPath, "index.json").replace("\\", "/") # a path to output file with indexed data (linux-style)
+		self.libBiotopesJson = os.path.join(self.libPath, "biotopes.json").replace("\\", "/") # a path to output file with indexed data (linux-style)
 		self.extMask = "*.bgeo.sc" # extension of files (converted) to be indexed
-		self.textures = ["Albedo", "Bump", "Cavity", "Displacement", "Gloss", "NormalBump", "Normal", "Roughness", "Specular", "Opacity", "Fuzz"] # list of all possible textures, there should be corresponding parameters on the node (with the same name, but first letter is lowercase)
+		self.textures = ["Albedo", "Bump", "Cavity", "Displacement", "Gloss", "NormalBump", "Normal", "Roughness", "Specular", "Opacity", "Fuzz", "Translucency"] # list of all possible textures, there should be corresponding parameters on the node (with the same name, but first letter is lowercase)
 		self.shader = hou.getenv("MEGA_SHADER")
 		self.megaLoad = 'jt_megaLoad_v3'
 
@@ -128,48 +137,71 @@ class BuildAssetsHierarchy(MegaInit):
 	generates and writes a dictionary with hierarchy of all megascans assets and their respective LODs
 
 	one key of dictionary looks like this
-		"Debris_Nature_Brown_qdzrT": {
+		"Plants_3d_qmBr2": {
+			"3dplant": true, 
 			"assets": {
-				"0": {
-					"LOD0": "Sctr_mushroom_brown_T_qdzrT_0_LOD0.bgeo.sc", 
-					"LOD1": "Sctr_mushroom_brown_T_qdzrT_0_LOD1.bgeo.sc", 
-					"LOD2": "Sctr_mushroom_brown_T_qdzrT_0_LOD2.bgeo.sc"
-				}, 
 				"1": {
-					"LOD0": "Sctr_mushroom_brown_T_qdzrT_1_LOD0.bgeo.sc", 
-					"LOD1": "Sctr_mushroom_brown_T_qdzrT_1_LOD1.bgeo.sc", 
-					"LOD2": "Sctr_mushroom_brown_T_qdzrT_1_LOD2.bgeo.sc"
+					"LOD0": "Var1/Var1_LOD0.bgeo.sc", 
+					"LOD1": "Var1/Var1_LOD1.bgeo.sc", 
+					"LOD2": "Var1/Var1_LOD2.bgeo.sc", 
+					"LOD3": "Var1/Var1_LOD3.bgeo.sc"
+				}, 
+				"2": {
+					"LOD0": "Var2/Var2_LOD0.bgeo.sc", 
+					"LOD1": "Var2/Var2_LOD1.bgeo.sc", 
+					"LOD2": "Var2/Var2_LOD2.bgeo.sc", 
+					"LOD3": "Var2/Var2_LOD3.bgeo.sc"
+				}, 
+				"3": {
+					"LOD0": "Var3/Var3_LOD0.bgeo.sc", 
+					"LOD1": "Var3/Var3_LOD1.bgeo.sc", 
+					"LOD2": "Var3/Var3_LOD2.bgeo.sc", 
+					"LOD3": "Var3/Var3_LOD3.bgeo.sc"
 				}
 			}, 
 			"environment": {
-				"biome": "temperate-forest", 
-				"region": "Oceania"
+				"biome": "mediterranean-forest", 
+				"region": "Asia"
 			}, 
-			"path": "$MEGA_LIB/3d/Debris_Nature_Brown_qdzrT", 
-			"preview_image": "Debris_Nature_Brown_qdzrT_3d_Preview.png", 
+			"path": "$MEGA_LIB/3dplant/Plants_3d_qmBr2", 
+			"preview_image": "Plants_3d_qmBr2_3dplant_Preview.png", 
 			"tags": [
-				"flat", 
-				"fungi", 
-				"organic", 
-				"scatter", 
-				"mushroom"
+				"grass", 
+				"green", 
+				"blades", 
+				"cluster", 
+				"patch", 
+				"scatter"
 			], 
 			"textures": {
-				"albedo": "Sctr_mushroom_brown_T_qdzrT_4K_Albedo.jpg", 
-				"bump": "Sctr_mushroom_brown_T_qdzrT_4K_Bump.jpg", 
-				"cavity": "Sctr_mushroom_brown_T_qdzrT_4K_Cavity.jpg", 
-				"displacement": "Sctr_mushroom_brown_T_qdzrT_4K_Displacement.exr", 
-				"fuzz": "", 
-				"gloss": "Sctr_mushroom_brown_T_qdzrT_4K_Gloss.jpg", 
-				"normal": {
-					"LOD0": "Sctr_mushroom_brown_T_qdzrT_4K_Normal_LOD0.jpg", 
-					"LOD1": "Sctr_mushroom_brown_T_qdzrT_4K_Normal_LOD1.jpg", 
-					"LOD2": "Sctr_mushroom_brown_T_qdzrT_4K_Normal_LOD2.jpg"
+				"2K": {
+					"albedo": "Textures/Atlas/qheqG_2K_Albedo.jpg", 
+					"bump": "Textures/Atlas/qheqG_2K_Bump.jpg", 
+					"cavity": "Textures/Atlas/", 
+					"displacement": "Textures/Atlas/qheqG_2K_Displacement.exr", 
+					"fuzz": "Textures/Atlas/", 
+					"gloss": "Textures/Atlas/qheqG_2K_Gloss.jpg", 
+					"normal": "Textures/Atlas/qheqG_2K_Normal.jpg", 
+					"normalBump": "Textures/Atlas/", 
+					"opacity": "Textures/Atlas/qheqG_2K_Opacity.jpg", 
+					"roughness": "Textures/Atlas/qheqG_2K_Roughness.jpg", 
+					"specular": "Textures/Atlas/qheqG_2K_Specular.jpg", 
+					"translucency": "Textures/Atlas/qheqG_2K_Translucency.jpg"
 				}, 
-				"normalBump": "Sctr_mushroom_brown_T_qdzrT_4K_NormalBump.jpg", 
-				"opacity": "", 
-				"roughness": "Sctr_mushroom_brown_T_qdzrT_4K_Roughness.jpg", 
-				"specular": "Sctr_mushroom_brown_T_qdzrT_4K_Specular.jpg"
+				"4K": {
+					"albedo": "Textures/Atlas/qheqG_4K_Albedo.jpg", 
+					"bump": "Textures/Atlas/qheqG_4K_Bump.jpg", 
+					"cavity": "Textures/Atlas/", 
+					"displacement": "Textures/Atlas/qheqG_4K_Displacement.exr", 
+					"fuzz": "Textures/Atlas/", 
+					"gloss": "Textures/Atlas/qheqG_4K_Gloss.jpg", 
+					"normal": "Textures/Atlas/qheqG_4K_Normal.jpg", 
+					"normalBump": "Textures/Atlas/", 
+					"opacity": "Textures/Atlas/qheqG_4K_Opacity.jpg", 
+					"roughness": "Textures/Atlas/qheqG_4K_Roughness.jpg", 
+					"specular": "Textures/Atlas/qheqG_4K_Specular.jpg", 
+					"translucency": "Textures/Atlas/qheqG_4K_Translucency.jpg"
+				}
 			}
 		}
 	"""
@@ -177,32 +209,49 @@ class BuildAssetsHierarchy(MegaInit):
 		"""
 		build a dict containing all the assets and needed information
 		"""
-		asset_folders_paths = Utils.getFoldersPathsContainingJson(self.libPath_3d)
-		#asset_folders_names = [] # not used
+		asset_folders_paths = Utils.getFoldersPathsContainingJson(self.libPath_3d) + Utils.getFoldersPathsContainingJson(self.libPath_3dplant)
 
 		# create a dictionary with folder names as keys and folder full paths as values
 		index_dict = { os.path.basename( os.path.normpath(path) ):path for path in asset_folders_paths }
 		
 		for key, value in index_dict.iteritems():
-			# get all asset files inside of a dir
-			dir_files = Utils.getFilesByMask(value, self.extMask)
-			assets = dir_files
 			folder_path = value
+			is3dplant = Utils.isPath3DPlant(value)
 
-			assets = [ a.split("_")[-2] for a in assets ] # keep only asset number
-			assets = list( set(assets) )
+			if is3dplant:
+				var_folders = Utils.getFilesByMask(value, "Var*")
+				var_numbers = [int(re.search('\d+', folder).group()) for folder in var_folders]
+				
+				assets_dict = {folder:"" for folder in var_numbers}
 
-			# generate a dict of assets - LOD as a key, file name as a value
-			assets_dict = {}
-			for asset in assets:
-				lods_dict = {}
-				matching_lods = fnmatch.filter(dir_files, "*_{}_*".format(asset) )
+				for variation in assets_dict.keys():
+					var_files = Utils.getFilesByMask("{}/Var{}".format(folder_path, variation), self.extMask)
+					lods_dict = {}
 
-				for lod in matching_lods:
-					lod_key = lod.split(".")[0].split("_")[-1]
-					lods_dict[lod_key] = lod
+					for var_file in var_files:
+						lod = var_file.split(".")[0].split("_")[-1]
+						lods_dict[lod] = "Var{}/{}".format(variation, var_file)
+					
+					assets_dict[variation] = lods_dict
+			else:
+				# get all asset files inside of a dir
+				dir_files = Utils.getFilesByMask(value, self.extMask)
+				assets = dir_files
 
-				assets_dict[asset] = lods_dict
+				assets = [ a.split("_")[-2] for a in assets ] # keep only asset number
+				assets = list( set(assets) )
+
+				# generate a dict of assets - LOD as a key, file name as a value
+				assets_dict = {}
+				for asset in assets:
+					lods_dict = {}
+					matching_lods = fnmatch.filter(dir_files, "*_{}_*".format(asset) )
+
+					for lod in matching_lods:
+						lod_key = lod.split(".")[0].split("_")[-1]
+						lods_dict[lod_key] = lod
+
+					assets_dict[asset] = lods_dict
 			
 			# move the whole dict into another dict - for the future, it will enable to store more information without breaking the tool
 			asset_dict = {"assets" : assets_dict}
@@ -237,8 +286,15 @@ class BuildAssetsHierarchy(MegaInit):
 			asset_dict["environment"] = environment
 
 			# add texture information
-			tex_dict = self.findTextures(path=folder_path)
+			tex_folder = folder_path
+			if is3dplant:
+				tex_folder = folder_path + "/Textures/Atlas"
+
+			tex_dict = self.findTextures(path=tex_folder, plant=is3dplant)
 			asset_dict["textures"] = tex_dict
+
+			# adds 3dplant information
+			asset_dict["3dplant"] = is3dplant
 
 			# replace folder path with a dict of assets
 			index_dict[key] = asset_dict
@@ -276,17 +332,14 @@ class BuildAssetsHierarchy(MegaInit):
 		end = time.time()
 		hou.ui.displayMessage("Assets indexing done in: %0.4f seconds" % (end-start), title="Done")
 	
-	def findTextures(self, path):
+	def findTextures(self, path, plant=False):
 		"""
-		finds textures in specified path, returns a dict, where keys are names of parameters and values are texture paths
+		finds textures in specified path, returns a nested dict, where first level keys is resolution, the second level keys are names of parameters and values are texture paths
 		"""
-		tex_dict = {}
-		for tex in self.textures:
-			# first letter to lowercase
-			key = list(tex)
-			key[0] = key[0].lower()
-			key = "".join(key)
+		res_dict = {}
 
+		all_textures = []
+		for tex in self.textures:
 			pattern = "*" + tex + ".*"
 
 			# do the pattern for normal map
@@ -297,51 +350,90 @@ class BuildAssetsHierarchy(MegaInit):
 			if tex == "Bump":
 				pattern = "*_" + tex + "*"
 
-			files = Utils.getFilesByMask(path, pattern)
-			picked_file = ""
+			all_textures += Utils.getFilesByMask(path, pattern)
 
-			order = ["jpg", "tif", "png", "exr", "rat"] # ascending priority list of extensions to be picked
-			# process normals differently from other textures
-			if tex == "Normal" and len(files) > 1:
-				picked_file = {}
-				# find unique LODs found
-				lods = [f.split(".")[0].split("_")[-1] for f in files]
-				lods = list( set(lods) )
+		all_res = []
+		for tex in all_textures:
+			res = re.search("_[0-9]K_", tex)
+			if res:
+				all_res.append(res.group())
+		
+		all_res = list( set(all_res) )
+
+		for res in all_res:
+			res_textures = filter(lambda t: fnmatch.fnmatch( t, "*{}*".format(res) ), all_textures)
+			tex_dict = {}
+
+			res_tag = res.replace("_","")
+
+			for tex in self.textures:
+				# first letter to lowercase
+				key = list(tex)
+				key[0] = key[0].lower()
+				key = "".join(key)
+
+				pattern = "*" + tex + ".*"
+
+				# do the pattern for normal map
+				if tex == "Normal":
+					pattern = "*" + tex + "[_.]*"
 				
-				# from all LODs found, create a dict like this "LOD0" : ["texture_LOD0.jpg", ...]
-				for lod in lods:
-					picked_file[lod] = fnmatch.filter( files, "*{}*".format(lod) )
+				# do the pattern for bump map (to exclude NormalBump)
+				if tex == "Bump":
+					pattern = "*_" + tex + "*"
+
+				#files = Utils.getFilesByMask(path, pattern)
+				files = filter(lambda t: fnmatch.fnmatch(t, pattern), res_textures)
 				
-				# our values can be lists (in case there are normal maps with multiple extensions), bellow code handles it
-				for lod, files_list in picked_file.iteritems():
-					if len(files_list) == 1:
-						picked_file[lod] = files_list[0]
-					elif len(files_list) > 1:
-						idx = Utils.getBestTextureFormat(order, files_list)
-						picked_file[lod] = files_list[idx]
-					else:
-						picked_file[lod] = ""
-			else:
-				# convert list of found texture candidates to the most suitable one :)
-				if len(files) > 1:
-					idx = Utils.getBestTextureFormat(order, files)
-					picked_file = files[idx]
-				elif len(files) == 1:
-					picked_file = files[0]
+				picked_file = ""
+
+				order = ["jpg", "tif", "png", "exr", "rat"] # ascending priority list of extensions to be picked
+				# process normals differently from other textures
+				if tex == "Normal" and len(files) > 1:
+					picked_file = {}
+					# find unique LODs found
+					lods = [f.split(".")[0].split("_")[-1] for f in files]
+					lods = list( set(lods) )
+					
+					# from all LODs found, create a dict like this "LOD0" : ["texture_LOD0.jpg", ...]
+					for lod in lods:
+						picked_file[lod] = fnmatch.filter( files, "*{}*".format(lod) )
+					
+					# our values can be lists (in case there are normal maps with multiple extensions), bellow code handles it
+					for lod, files_list in picked_file.iteritems():
+						if len(files_list) == 1:
+							picked_file[lod] = files_list[0]
+						elif len(files_list) > 1:
+							idx = Utils.getBestTextureFormat(order, files_list)
+							picked_file[lod] = files_list[idx]
+						else:
+							picked_file[lod] = ""
 				else:
-					picked_file = ""
+					# convert list of found texture candidates to the most suitable one :)
+					if len(files) > 1:
+						idx = Utils.getBestTextureFormat(order, files)
+						picked_file = files[idx]
+					elif len(files) == 1:
+						picked_file = files[0]
+					else:
+						picked_file = ""
 
-			# this manages the case, when the textures are pre-converted to mipmapped formats and there is only one key in the dict for normal / normalBump tex
-			if len(picked_file) == 1 and isinstance(picked_file, dict):
-				picked_file = picked_file[ picked_file.keys()[0] ]
+				# this manages the case, when the textures are pre-converted to mipmapped formats and there is only one key in the dict for normal / normalBump tex
+				if len(picked_file) == 1 and isinstance(picked_file, dict):
+					picked_file = picked_file[ picked_file.keys()[0] ]
 
-			tex_dict[key] = picked_file
+				if plant:
+					picked_file = "Textures/Atlas/{}".format(picked_file)
+
+				tex_dict[key] = picked_file
+			
+			# if normalBump texture does not exist, then use universal normal
+			if tex_dict["normalBump"] == "":
+				tex_dict["normalBump"] = tex_dict["normal"]
+			
+			res_dict[res_tag] = tex_dict
 		
-		# if normalBump texture does not exist, then use universal normal
-		if tex_dict["normalBump"] == "":
-			tex_dict["normalBump"] = tex_dict["normal"]
-		
-		return tex_dict
+		return res_dict
 
 class MegaLoad(MegaInit):
 	"""
@@ -425,6 +517,26 @@ class MegaLoad(MegaInit):
 
 		return menu_lods
 
+	def resMenuList(self, node=None):
+		"""
+		returns a houdini-menu style list of available texture resolutions for selected pack
+		"""
+		if not node:
+			node = hou.pwd()
+
+		# eval asset_pack parameter and pick corresponding value from index dict
+		asset_pack_number = node.parm("asset_pack").eval()
+		asset_pack_items = node.parm("asset_pack").menuItems()
+		asset_pack = asset_pack_items[asset_pack_number]
+
+		res_dict = self.assetsIndex[asset_pack]["textures"]
+
+		res_list = res_dict.keys()
+		res_list.sort()
+		res_list = [str(x) for pair in zip(res_list,res_list) for x in pair]
+
+		return res_list
+
 	def updateParms(self):
 		"""
 		updates mega load parameters with asset paths, lods, textures and stuff
@@ -441,14 +553,18 @@ class MegaLoad(MegaInit):
 		asset_lod_labels = node.parm("asset_lod").menuLabels()
 		display_lod_number = node.parm("display_lod_level").eval()
 		display_lod_labels = node.parm("display_lod_level").menuLabels()
+		tex_rest_number = node.parm("tex_res").eval()
+		tex_rest_labels = node.parm("tex_res").menuLabels()
 
 		asset_pack = asset_pack_items[asset_pack_number]
 
+		
 		# in case asset changes and there are not enough of LODs in the list
 		try:
 			asset = asset_items[asset_number]
 			lod = asset_lod_labels[asset_lod_number]
 			display_lod = display_lod_labels[display_lod_number]
+			tex_res = tex_rest_labels[tex_rest_number]
 		except IndexError:
 			node.parm("asset").set(0)
 			asset = asset_items[0]
@@ -456,6 +572,8 @@ class MegaLoad(MegaInit):
 			lod = asset_lod_labels[0]
 			node.parm("display_lod_level").set( len(display_lod_labels)-1 )
 			display_lod = display_lod_labels[ len(display_lod_labels)-1 ]
+			node.parm("tex_res").set(0)
+			tex_res = tex_rest_labels[0]
 		
 		asset_pack_dict = self.assetsIndex[asset_pack]
 		lods_dict = asset_pack_dict["assets"][asset]
@@ -473,7 +591,7 @@ class MegaLoad(MegaInit):
 		asset_lod_number = "High" if lod == "High" else lod
 
 		# determine texture paths
-		tex_dict = asset_pack_dict["textures"]
+		tex_dict = asset_pack_dict["textures"][tex_res]
 		for key, value in tex_dict.iteritems():
 			# if doing normals, then select corresponding one
 			if isinstance(value, dict):
@@ -559,7 +677,7 @@ class ProcessAssets(object):
 	a class managing cracking process
 	"""
 	@staticmethod
-	def convertInFilePathCracked(node):
+	def convertInFilePathCracked(node=None):
 		"""
 		gets a path, extension from param from parent and replaces extension, prepends LOD with current asset number
 		"""
@@ -597,6 +715,39 @@ class ProcessAssets(object):
 		return out_path.replace("\\", "/")
 
 	@staticmethod
+	def convertInFilePath3DPlant(node=None):
+		"""
+		gets a path, extension from param from parent and replaces extension, this is for 3dplant assets, where no change to naming is needed, only extension needs to be replaces
+		"""
+		if not node:
+			node = hou.pwd()
+
+		extension = ".bgeo.sc"
+		parent_node = node.parent()
+
+		try:
+			in_path = parent_node.parm("file").eval()
+		except AttributeError:
+			raise AttributeError("'file' parameter not found")
+
+		try:
+			in_ext = parent_node.parent().parent().parm("ext").eval()
+		except AttributeError:
+			try:
+				in_ext = parent_node.parent().parm("ext").eval()
+			except AttributeError:
+				raise AttributeError("'ext' parameter not found")
+		
+		out_path = in_path
+		in_ext_list = in_ext.split(" ")
+		for ext_current in in_ext_list:
+			out_path = out_path.replace(ext_current, extension)
+
+		log.debug( "frame: {}, file: {}".format( int( hou.frame() ), out_path ) )
+
+		return out_path.replace("\\", "/")
+
+	@staticmethod
 	def getDummyPath():
 		"""
 		generates a dummy path which is used for all ROPs to write to an empty file
@@ -611,15 +762,21 @@ class ProcessAssets(object):
 	def generateProcessAssetsNodes(node):
 		"""
 		generates child Process Asset SOP nodes and sets parameter, also creates Fetch ROPs pointing to them and merges them together
+
+		it generates two assets:
+			mega_process_asset for classic megascans
+			mega_process_asset_3dplant for 3dplant assets, which have different conversion setup, it is used when "3dplant" folder is present in folder path
 		"""
 		if not node:
 			node = hou.pwd()
 
-		try:
-			root_path = node.parm("folder").eval()
-			ext = node.parm("ext").eval()
-		except AttributeError:
-			raise AttributeError("Specified node has no 'folder' and 'ext' parameters")
+		root_paths = []
+		parms = node.parm("folders").multiParmInstances()
+
+		for parm in parms:
+			root_paths.append(parm.eval())
+
+		ext = node.parm("ext").eval()
 		
 		sopnet = node.glob("sopnet")[0]
 		ropnet = node.glob("ropnet")[0]
@@ -628,14 +785,20 @@ class ProcessAssets(object):
 		ext_list = ext.split(" ")
 		files = []
 		for ext_current in ext_list:
-			files.append( Utils.getFilesRecursivelyByMask(root_path, "*"+ext_current) )
+			for root_path in root_paths:
+				files.append( Utils.getFilesRecursivelyByMask(root_path, "*"+ext_current) )
 		files = Utils.flatten(files)
+		files = list(set(files))
 
 		process_nodes = []
 		fetch_nodes = []
 
 		for file_current in files:
-			node = sopnet.createNode("mega_process_asset")
+			if Utils.isPath3DPlant(file_current):
+				node = sopnet.createNode("mega_process_asset_3dplant")
+			else:
+				node = sopnet.createNode("mega_process_asset")
+			
 			node.parm("file").set(file_current)
 
 			fetch = ropnet.createNode("fetch")
@@ -649,6 +812,34 @@ class ProcessAssets(object):
 		sopnet.layoutChildren()
 		ropnet.layoutChildren()
 	
+	@staticmethod
+	def convertTextures(node):
+		"""
+		runs batch texture conversion tool and fills in paths from folders multiparm on this node
+		it relies on batch_textures_convert tool (https://github.com/jtomori/batch_textures_convert)
+		"""
+		if not node:
+			node = hou.pwd()
+		
+		folder_paths = []
+		parms = node.parm("folders").multiParmInstances()
+
+		for parm in parms:
+			parm_path = parm.eval()
+			if os.path.normpath(parm_path).split(os.sep)[-1].lower().startswith("var"):
+				fixed_path = os.sep.join( os.path.normpath(parm_path).split(os.sep)[:-1] )
+				folder_paths.append(fixed_path)
+			else:
+				folder_paths.append(parm_path)
+
+		folder_paths = list(set(folder_paths))
+
+		try:
+			import batch_convert
+			batch_convert.runGui(path=batch_convert.paths_separator.join(folder_paths))
+		except ImportError:
+			log.error("batch_convert module could not be imported")
+
 	@staticmethod
 	def cleanChildren(node):
 		"""

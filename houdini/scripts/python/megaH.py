@@ -113,6 +113,13 @@ class Utils(object):
 		"""
 		return "3dplant" in os.path.normpath(path).split(os.sep)
 
+	@staticmethod
+	def isPathSurface(path):
+		"""
+		returns True or False depending if folder path is surface asset type - if one of the folders in the path contains "surface"
+		"""
+		return "surface" in os.path.normpath(path).split(os.sep)
+
 class MegaInit(object):
 	"""
 	class setting up useful member variables
@@ -125,12 +132,15 @@ class MegaInit(object):
 		self.libPath = os.path.normpath(self.libPath) # normalize it just to be sure
 		self.libPath_3d = os.path.join(self.libPath, "3d").replace("\\", "/") # append 3d folder which contains actual geometry and convert to linux-style
 		self.libPath_3dplant = os.path.join(self.libPath, "3dplant").replace("\\", "/") # append 3dplant folder which contains 3dplant geometry and convert to linux-style		
+		self.libPath_surface = os.path.join(self.libPath, "surface").replace("\\", "/") # append surface folder which contains surfaces and convert to linux-style		
 		self.libHierarchyJson = os.path.join(self.libPath, "index.json").replace("\\", "/") # a path to output file with indexed data (linux-style)
 		self.libBiotopesJson = os.path.join(self.libPath, "biotopes.json").replace("\\", "/") # a path to output file with indexed data (linux-style)
 		self.extMask = "*.bgeo.sc" # extension of files (converted) to be indexed
 		self.textures = ["Albedo", "Bump", "Cavity", "Displacement", "Gloss", "NormalBump", "Normal", "Roughness", "Specular", "Opacity", "Fuzz", "Translucency"] # list of all possible textures, there should be corresponding parameters on the node (with the same name, but first letter is lowercase)
 		self.shader = hou.getenv("MEGA_SHADER")
+		self.shaderTranslucent = hou.getenv("MEGA_SHADER_TRANSLUCENT")
 		self.megaLoad = 'jt_megaLoad_v3'
+		self.megaTex = 'mega_textures'
 
 class BuildAssetsHierarchy(MegaInit):
 	"""
@@ -209,7 +219,7 @@ class BuildAssetsHierarchy(MegaInit):
 		"""
 		build a dict containing all the assets and needed information
 		"""
-		asset_folders_paths = Utils.getFoldersPathsContainingJson(self.libPath_3d) + Utils.getFoldersPathsContainingJson(self.libPath_3dplant)
+		asset_folders_paths = Utils.getFoldersPathsContainingJson(self.libPath_3d) + Utils.getFoldersPathsContainingJson(self.libPath_3dplant) + Utils.getFoldersPathsContainingJson(self.libPath_surface)
 
 		# create a dictionary with folder names as keys and folder full paths as values
 		index_dict = { os.path.basename( os.path.normpath(path) ):path for path in asset_folders_paths }
@@ -217,8 +227,11 @@ class BuildAssetsHierarchy(MegaInit):
 		for key, value in index_dict.iteritems():
 			folder_path = value
 			is3dplant = Utils.isPath3DPlant(value)
+			isSurface = Utils.isPathSurface(value)
 
-			if is3dplant:
+			if isSurface:
+				assets_dict = {}
+			elif is3dplant:
 				var_folders = Utils.getFilesByMask(value, "Var*")
 				var_numbers = [int(re.search('\d+', folder).group()) for folder in var_folders]
 				
@@ -296,6 +309,9 @@ class BuildAssetsHierarchy(MegaInit):
 			# adds 3dplant information
 			asset_dict["3dplant"] = is3dplant
 
+			# adds surface information
+			asset_dict["surface"] = isSurface
+
 			# replace folder path with a dict of assets
 			index_dict[key] = asset_dict
 
@@ -326,8 +342,11 @@ class BuildAssetsHierarchy(MegaInit):
 			log.debug("Hou.session has no library index cache, not deleting anything")
 		
 		# reload mega load hda module
-		megaType = hou.nodeType(hou.sopNodeTypeCategory(), 'jt_megaLoad_v3')
-		megaType.hdaModule()._HDAModule__reload()
+		megaLoadType = hou.nodeType(hou.sopNodeTypeCategory(), self.megaLoad)
+		megaLoadType.hdaModule()._HDAModule__reload()
+		# reload mega textures hda module
+		megaTexType = hou.nodeType(hou.vopNodeTypeCategory(), self.megaTex)
+		megaTexType.hdaModule()._HDAModule__reload()
 
 		end = time.time()
 		hou.ui.displayMessage("Assets indexing done in: %0.4f seconds" % (end-start), title="Done")
@@ -460,7 +479,12 @@ class MegaLoad(MegaInit):
 		if not node:
 			node = hou.pwd()
 
-		keys = self.assetsIndex.keys() # get all keys form index dictionary
+		allKeys = self.assetsIndex.keys() # get all keys form index dictionary
+		keys = []
+		for key in allKeys:
+			if self.assetsIndex[key]["surface"] == False:
+				keys.append(key) # filter out surfaces since megaLoad is used to load only geometry assets
+
 		keys.sort()
 		keys = [str(x) for pair in zip(keys,keys) for x in pair] # duplicate all elements, for houdini menu
 		return keys
@@ -645,18 +669,20 @@ class MegaLoad(MegaInit):
 		"""
 		searches houdini project file for shaders which are prepared to work with megascans assets, if found, it modifies parameter values
 		"""
-		if not shader:
-			shader = self.shader
-		
 		if not node:
 			node = hou.pwd()
 
+		if not shader:
+			if node.parm('translucency').eval() == '':
+				shader = self.shader
+			else:
+				shader = self.shaderTranslucent
+		
 		shaderInstances = []
 		try:
 			shaderInstances = hou.nodeType(hou.vopNodeTypeCategory(), shader).instances()
 		except AttributeError:
-			log.debug("Specified shader '{}' not found, check environment variable MEGA_SHADER.".format(shader))
-
+			log.debug("Specified shader '{}' not found, check environment variables MEGA_SHADER and MEGA_SHADER_TRANSLUCENT.".format(shader))
 
 		if len(shaderInstances) > 0:
 			shader = shaderInstances[0].path()
@@ -671,6 +697,141 @@ class MegaLoad(MegaInit):
 		"""
 		self.updateParms()
 		self.autoRename()
+
+class MegaTextures(MegaInit):
+	"""
+	class implementing functionality of mega textures digital asset
+	"""
+	def __init__(self, force_recache=False):
+		super(MegaTextures, self).__init__() # call parent class constructor
+
+		# cache loaded index into hou.session, if re-indexed, it needs to be re-created
+		if not hasattr(hou.session, "mega_index") or force_recache:
+			log.debug("Library index is not loaded into the session, loading...")
+			with open(self.libHierarchyJson) as data:
+				parsed = json.load(data)
+				setattr(hou.session, "mega_index", parsed)
+		else:
+			log.debug("Using cached library index")
+		
+		self.assetsIndex = hou.session.mega_index
+	
+	def surfaceMenuList(self, node=None):
+		"""
+		returns a houdini-menu style list of surfaces
+		"""
+		if not node:
+			node = hou.pwd()
+
+		allKeys = self.assetsIndex.keys() # get all keys form index dictionary
+		keys = []
+		for key in allKeys:
+			if self.assetsIndex[key]["surface"] == True:
+				keys.append(key) # select only surfaces
+
+		keys.sort()
+		keys = [str(x) for pair in zip(keys,keys) for x in pair] # duplicate all elements, for houdini menu
+		return keys
+
+	def resMenuList(self, node=None):
+		"""
+		returns a houdini-menu style list of available texture resolutions for selected surface
+		"""
+		if not node:
+			node = hou.pwd()
+
+		# eval asset_pack parameter and pick corresponding value from index dict
+		surface_number = node.parm("surface").eval()
+		surface_items = node.parm("surface").menuItems()
+		surface = surface_items[surface_number]
+
+		res_dict = self.assetsIndex[surface]["textures"]
+
+		res_list = res_dict.keys()
+		res_list.sort()
+		res_list = [str(x) for pair in zip(res_list,res_list) for x in pair]
+
+		return res_list
+
+	def updateParms(self):
+		"""
+		updates mega textures parameters
+		"""
+		node = hou.pwd()
+		relative_enable = node.parm("paths_relative_enable").eval()
+
+		# get selected asset, lod and display lod from node parameters
+		surface_number = node.parm("surface").eval()
+		surface_items = node.parm("surface").menuItems()
+		tex_res_number = node.parm("tex_res").eval()
+		tex_res_labels = node.parm("tex_res").menuLabels()
+
+		surface = surface_items[surface_number]
+		
+		# in case asset changes and there are not enough of res in the list
+		try:
+			tex_res = tex_res_labels[tex_res_number]
+		except IndexError:
+			node.parm("tex_res").set(0)
+			tex_res = tex_res_labels[0]
+		
+		surface_dict = self.assetsIndex[surface]
+		folder_path = surface_dict["path"] # relative to $MEGA_LIB
+
+		# determine texture paths
+		tex_dict = surface_dict["textures"][tex_res]
+		for key, value in tex_dict.iteritems():
+			if value != "":
+				value = os.path.join(folder_path, value).replace("\\", "/")
+
+			if not relative_enable:
+				value = value.replace("$MEGA_LIB", self.libPath, 1 ).replace("\\", "/")
+			
+			node.parm(key).set(value)
+
+	def autoRename(self):
+		"""
+		checks checkbox in asset, if set, it will rename current node by surface name, it should be bound to callback of a load button (which might by hidden)
+		it also always (regardless of rename_node parameter setting) updates node's comment
+		"""
+		node = hou.pwd()
+		currentName = node.name()
+		enabled = node.evalParm("rename_node")
+
+		# get selected surface
+		surface_number = node.parm("surface").eval()
+		surface_items = node.parm("surface").menuItems()
+
+		newName = surface_items[surface_number]
+
+		node.setComment(newName)
+
+		if enabled and (currentName != newName):
+			node.setName(newName, unique_name=True)
+
+	def apply(self):
+		"""
+		updates values and rename node
+		"""
+		self.updateParms()
+		self.autoRename()
+
+	def connect(self):
+		'''
+		connects outputs of megaTex node to corresponding inputs of selected nodes
+		'''
+		nodes = hou.selectedNodes()
+		if len(nodes) >= 2:
+			megaTexNode = nodes[-1] # megaTex node has to be the last one selected
+			connectNodes = nodes[:-1]
+			names = megaTexNode.outputNames()
+
+			for connectNode in connectNodes:
+				for i, name in enumerate(names): # loops through megaTex output names
+					if connectNode.inputIndex(name) != -1: # checks if input with given name exists on node which being connected
+						connectNode.setInput(connectNode.inputIndex(name), megaTexNode, i)
+		else:
+			hou.ui.displayMessage("Please select two nodes to connect.")
 
 class ProcessAssets(object):
 	"""

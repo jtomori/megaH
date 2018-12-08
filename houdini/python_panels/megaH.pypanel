@@ -5,7 +5,7 @@
  used by the application.  Note, that two definitions of the
  same interface or of the interfaces menu are not allowed
  in a single file. -->
-  <interface name="megaH" label="Megascans Houdini" icon="MISC_python" help_url="">
+  <interface name="megaH" label="Megascans Houdini" icon="MISC_python" showNetworkNavigationBar="false" help_url="">
     <script><![CDATA[import megaGui
 
 def onCreateInterface():

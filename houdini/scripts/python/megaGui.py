@@ -1,4 +1,6 @@
 import os, math, glob, hou, json
+import nodegraphutils
+import ast
 from megaH import MegaInit
 
 from PySide2 import QtWidgets
@@ -47,6 +49,8 @@ class MegaView(QtWidgets.QWidget, MegaInit):
 
         show_images = QtWidgets.QPushButton('Show images')
         show_images.clicked.connect(self.showNetworkImages)
+        clear_images = QtWidgets.QPushButton('Clear images')
+        clear_images.clicked.connect(self.clearNetworkImages)
         refresh_status = QtWidgets.QPushButton('Refresh Status')
         refresh_status.clicked.connect(self.buttonBorder)
         # Scale Area add widgets
@@ -57,6 +61,7 @@ class MegaView(QtWidgets.QWidget, MegaInit):
         scale_layout.addWidget(self.search)
         scale_layout.addStretch(1)
         scale_layout.addWidget(show_images)
+        scale_layout.addWidget(clear_images)
         scale_layout.addWidget(refresh_status)
         scale_widget.setLayout(scale_layout)
 
@@ -222,9 +227,19 @@ class MegaView(QtWidgets.QWidget, MegaInit):
             pass
         # print '\n\t tabSelected() current Tab index =', arg
 
-    # ......................................................................................................................................
-    # adds megaload to network editor, if pack contains multiple assets, all of them are added
     def addMegaHda(self, pack):
+        """
+        adds megaload if pack is geometry asset or megatex if pack is surface
+        """
+        if self.assetsIndex[pack]["surface"] == True:
+            self.addMegaTex(pack)
+        else:
+            self.addMegaLoad(pack)
+
+    def addMegaLoad(self, pack):
+        """
+        adds megaLoad to network editor, if pack contains multiple assets, all of them are added
+        """
         editor = hou.ui.paneTabOfType(hou.paneTabType.NetworkEditor)
         # context must be sop in order to add megaload, if it is not, stop
         contextname = editor.pwd().childTypeCategory().name()
@@ -282,23 +297,93 @@ class MegaView(QtWidgets.QWidget, MegaInit):
             netbox.setPosition(position)
 
         self.buttonBorder()
-    # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-    # ......................................................................................................................................
-    # shows preview image for every pack in network editor
-    def showNetworkImages(self):
+    def addMegaTex(self, pack):
+        """
+        adds megaTex to network editor
+        """
+        editor = hou.ui.paneTabOfType(hou.paneTabType.NetworkEditor)
+        # context must be vop in order to add megaload, if it is not, stop
+        contextname = editor.pwd().childTypeCategory().name()
+        if contextname != 'Vop':
+            hou.ui.displayMessage('Current context is not VOP, please navigate to proper place first.')            
+            return
+
+        parentNode = editor.pwd()
+        path = parentNode.path()
+
+        meganode = hou.node(path).createNode(self.megaTex)
+        meganode.moveToGoodPosition(relative_to_inputs=True, move_inputs=False, move_outputs=False, move_unconnected=False)
+        meganode.setSelected(1, clear_all_selected=True)
+        meganode.parm('surface').set(pack)
+        meganode.parm('reload').pressButton()
+        
+        self.buttonBorder()
+
+    def addNetworkImage(self, package, pinNodePath):
+        """
+        function used to add image to network editor and pin it to node
+        """
+        userdata = hou.node(pinNodePath).parent().userDataDict()
+        if 'backgroundimages' in userdata:
+            userimages = ast.literal_eval(userdata['backgroundimages']) # gets list of images defined in backgroundimages
+            for userimg in userimages:
+                if userimg['relativetopath'] == pinNodePath:
+                    # there already is image pinned to requested node, exitting
+                    return
+
+        editor = hou.ui.paneTabOfType(hou.paneTabType.NetworkEditor)
+        curImages = editor.backgroundImages()
+        
+        pack_path = self.assetsIndex[package]["path"]
+        preview_image = self.assetsIndex[package]["preview_image"]
+        imagepath = hou.expandString(os.path.join(pack_path, preview_image))
+        
+        image = hou.NetworkImage()
+        image.setPath(imagepath)
+        image.setRect(hou.BoundingRect(-3, 0.4, 3, 3.4))
+        image.setRelativeToPath(pinNodePath)
+
+        allImages = curImages + tuple([image])
+        nodegraphutils.saveBackgroundImages(hou.node(pinNodePath).parent(), allImages)
+    
+    def clearNetworkImages(self):
+        """
+        clears all images in current network editor
+        """
         editor = hou.ui.paneTabOfType(hou.paneTabType.NetworkEditor)
         parentNode = editor.pwd()
-        megaType = hou.nodeType(hou.sopNodeTypeCategory(), self.megaLoad)
-        allMegaNodes = megaType.instances() # finds all megaLoad nodes in project
-        megaNodes = []
+        userdata = parentNode.userDataDict()
+        if 'backgroundimages' in userdata:
+            parentNode.destroyUserData("backgroundimages")
+
+    def showNetworkImages(self):
+        """
+        shows preview image for every pack/surface in network editor
+        """
+        editor = hou.ui.paneTabOfType(hou.paneTabType.NetworkEditor)
+        parentNode = editor.pwd()
+        contextname = editor.pwd().childTypeCategory().name()
+
+        if contextname == 'Sop':
+            self.showMegaLoadImages(parentNode)
+        if contextname == 'Vop':
+            self.showMegaTexImages(parentNode)
+
+    def showMegaLoadImages(self, parentNode):
+        """
+        shows preview images for all megaLoad nodes in given parentNode
+        """
+        megaLoadType = hou.nodeType(hou.sopNodeTypeCategory(), self.megaLoad)
+        allMegaLoadNodes = megaLoadType.instances() # gets all megaLoad nodes in project
+        megaLoadNodes = []
         # runs throuhg megaLoad nodes and keeps only those, that are present in current path of network editor
-        for m in allMegaNodes:
+        for m in allMegaLoadNodes:
             if m in parentNode.children():
-                megaNodes.append(m)
+                megaLoadNodes.append(m)
 
         usedNetbox = []
-        for megaNode in megaNodes:
+        for megaNode in megaLoadNodes:
             packages = megaNode.parm("asset_pack").menuItems()
             package = megaNode.parm("asset_pack").eval()
             assets = megaNode.parm("asset").menuItems()
@@ -312,42 +397,47 @@ class MegaView(QtWidgets.QWidget, MegaInit):
                     if netbox not in usedNetbox and megaNode in netbox.items():
                         self.addNetworkImage(packages[package], netbox.path())
                         usedNetbox.append(netbox)
-    # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-    # ......................................................................................................................................
-    def addNetworkImage(self, package, pinNodePath):
-        editor = hou.ui.paneTabOfType(hou.paneTabType.NetworkEditor)
-        
-        pack_path = self.assetsIndex[package]["path"]
-        preview_image = self.assetsIndex[package]["preview_image"]
-        imagepath = hou.expandString(os.path.join(pack_path, preview_image))
-        
-        curImages = editor.backgroundImages()
-        image = hou.NetworkImage()
-        image.setPath(imagepath)
-        image.setRect(hou.BoundingRect(-3, 0.4, 3, 3.4))
-        image.setRelativeToPath(pinNodePath)
+    def showMegaTexImages(self, parentNode):
+        """
+        shows preview images for all megaTex nodes in given parentNode
+        """
+        megaTexType = hou.nodeType(hou.vopNodeTypeCategory(), self.megaTex)
+        allMegaTexNodes = megaTexType.instances() # gets all megaTex nodes in project
+        megaTexNodes = []
+        # runs throuhg megaTex nodes and keeps only those, that are present in current path of network editor
+        for m in allMegaTexNodes:
+            if m in parentNode.children():
+                if m.parm('use_packed_attribs').eval() == 0:
+                    megaTexNodes.append(m)
 
-        editor.setBackgroundImages([image])
-        image = editor.backgroundImages()
-        allImages = curImages + image
-        editor.setBackgroundImages(allImages)
-    # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+        for megaNode in megaTexNodes:
+            surfaces = megaNode.parm("surface").menuItems()
+            surface = megaNode.parm("surface").eval()
+            self.addNetworkImage(surfaces[surface], megaNode.path())
 
-    # ......................................................................................................................................
-    # highlights packs that already have been added to project
     def buttonBorder(self):
-        # get all megaLoad nodes in project
-        megaType = hou.nodeType(hou.sopNodeTypeCategory(), self.megaLoad)
-        megaNodes = megaType.instances()
+        """
+        highlights packs that already have been added to project
+        """
+        megaLoadType = hou.nodeType(hou.sopNodeTypeCategory(), self.megaLoad)
+        megaLoadNodes = megaLoadType.instances() # gets all megaLoad nodes in project
+        megaTexType = hou.nodeType(hou.vopNodeTypeCategory(), self.megaTex)
+        megaTexNodes = megaTexType.instances() # gets all megaTex nodes in project
 
         usedPkgs = []
-        # run through megaLoad nodes and create list of "used" packs (without duplicates)
-        for megaNode in megaNodes:
-            pkgs = megaNode.parm("asset_pack").menuItems()
-            pkg = megaNode.parm("asset_pack").eval()
+        # run through megaLoad and megaTex nodes and create list of "used" packs (without duplicates)
+        for megaLoadNode in megaLoadNodes:
+            pkgs = megaLoadNode.parm("asset_pack").menuItems()
+            pkg = megaLoadNode.parm("asset_pack").eval()
             if pkgs[pkg] not in usedPkgs:
                 usedPkgs.append(pkgs[pkg])
+        for megaTexNode in megaTexNodes:
+            if megaTexNode.parm('use_packed_attribs').eval() == 0:
+                surfs = megaTexNode.parm("surface").menuItems()
+                surf =  megaTexNode.parm("surface").eval()
+                if surfs[surf] not in usedPkgs:
+                    usedPkgs.append(surfs[surf])
 
         # run through all packs - looking for presence in "used" biotopes and packs
         for pack in xrange(len(self.packs)):
@@ -357,4 +447,3 @@ class MegaView(QtWidgets.QWidget, MegaInit):
             else:
                 # if not, remove border                    
                 self.button[pack].setStyleSheet('')
-    # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<

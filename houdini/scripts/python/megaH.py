@@ -824,7 +824,7 @@ class MegaTextures(MegaInit):
 		if len(nodes) >= 2:
 			megaTexNode = nodes[-1] # megaTex node has to be the last one selected
 			connectNodes = nodes[:-1]
-			names = megaTexNode.outputNames()
+			names = megaTexNode.outputLabels()
 
 			for connectNode in connectNodes:
 				for i, name in enumerate(names): # loops through megaTex output names

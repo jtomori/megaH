@@ -408,8 +408,7 @@ class MegaView(QtWidgets.QWidget, MegaInit):
         # runs throuhg megaTex nodes and keeps only those, that are present in current path of network editor
         for m in allMegaTexNodes:
             if m in parentNode.children():
-                if m.parm('use_packed_attribs').eval() == 0:
-                    megaTexNodes.append(m)
+                megaTexNodes.append(m)
 
         for megaNode in megaTexNodes:
             surfaces = megaNode.parm("surface").menuItems()
@@ -433,11 +432,10 @@ class MegaView(QtWidgets.QWidget, MegaInit):
             if pkgs[pkg] not in usedPkgs:
                 usedPkgs.append(pkgs[pkg])
         for megaTexNode in megaTexNodes:
-            if megaTexNode.parm('use_packed_attribs').eval() == 0:
-                surfs = megaTexNode.parm("surface").menuItems()
-                surf =  megaTexNode.parm("surface").eval()
-                if surfs[surf] not in usedPkgs:
-                    usedPkgs.append(surfs[surf])
+            surfs = megaTexNode.parm("surface").menuItems()
+            surf =  megaTexNode.parm("surface").eval()
+            if surfs[surf] not in usedPkgs:
+                usedPkgs.append(surfs[surf])
 
         # run through all packs - looking for presence in "used" biotopes and packs
         for pack in xrange(len(self.packs)):

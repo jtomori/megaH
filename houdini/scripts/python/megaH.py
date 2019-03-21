@@ -553,8 +553,8 @@ class MegaLoad(MegaInit):
 		asset_lod_labels = node.parm("asset_lod").menuLabels()
 		display_lod_number = node.parm("display_lod_level").eval()
 		display_lod_labels = node.parm("display_lod_level").menuLabels()
-		tex_rest_number = node.parm("tex_res").eval()
-		tex_rest_labels = node.parm("tex_res").menuLabels()
+		tex_res_number = node.parm("tex_res").eval()
+		tex_res_labels = node.parm("tex_res").menuLabels()
 
 		asset_pack = asset_pack_items[asset_pack_number]
 
@@ -564,7 +564,7 @@ class MegaLoad(MegaInit):
 			asset = asset_items[asset_number]
 			lod = asset_lod_labels[asset_lod_number]
 			display_lod = display_lod_labels[display_lod_number]
-			tex_res = tex_rest_labels[tex_rest_number]
+			tex_res = tex_res_labels[tex_res_number]
 		except IndexError:
 			node.parm("asset").set(0)
 			asset = asset_items[0]
@@ -572,8 +572,8 @@ class MegaLoad(MegaInit):
 			lod = asset_lod_labels[0]
 			node.parm("display_lod_level").set( len(display_lod_labels)-1 )
 			display_lod = display_lod_labels[ len(display_lod_labels)-1 ]
-			node.parm("tex_res").set(0)
-			tex_res = tex_rest_labels[0]
+			node.parm("tex_res").set( len(tex_res_labels)-1 )
+			tex_res = tex_res_labels[ len(tex_res_labels)-1 ]
 		
 		asset_pack_dict = self.assetsIndex[asset_pack]
 		lods_dict = asset_pack_dict["assets"][asset]

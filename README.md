@@ -1,6 +1,11 @@
 megaH - megascans to Houdini integration
 ===========================
 
+Status
+------
+#### This project is no longer actively developed or maintained. It was used mainly in student vfx, animation productions.
+Check `v2.0_*` branches for the most recent state.
+
 Setup
 -----
 

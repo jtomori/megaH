@@ -2,6 +2,7 @@ import os, math, glob, hou, json
 import nodegraphutils
 import ast
 from megaH import MegaInit
+from functools import partial
 
 from PySide2 import QtWidgets
 from PySide2 import QtGui
@@ -26,6 +27,7 @@ class MegaView(QtWidgets.QWidget, MegaInit):
         self.removeEmptyBiotopes()
 
         self.biotopes = self.biotopesIndex.keys() # get list of biotopes
+        self.biotopes.sort()
         self.biotopes = [x.encode("ascii") for x in self.biotopes]
 
         self.root_layout = QtWidgets.QVBoxLayout(self) # set root_layout as layout for this class
@@ -128,7 +130,7 @@ class MegaView(QtWidgets.QWidget, MegaInit):
             packname = self.packs[pack]
             self.button.append(pack)
             self.button[pack] = QtWidgets.QPushButton('')
-            self.button[pack].clicked.connect(lambda a=packname: self.addMegaHda(a))
+            self.button[pack].clicked.connect(partial(self.addMegaHda, packname))
             self.button[pack].setToolTip(packname)
             
             pack_path = self.assetsIndex[packname]["path"]
@@ -324,7 +326,7 @@ class MegaView(QtWidgets.QWidget, MegaInit):
         """
         function used to add image to network editor and pin it to node
         """
-        userdata = hou.node(pinNodePath).parent().userDataDict()
+        userdata = hou.item(pinNodePath).parent().userDataDict()
         if 'backgroundimages' in userdata:
             userimages = ast.literal_eval(userdata['backgroundimages']) # gets list of images defined in backgroundimages
             for userimg in userimages:
@@ -345,7 +347,7 @@ class MegaView(QtWidgets.QWidget, MegaInit):
         image.setRelativeToPath(pinNodePath)
 
         allImages = curImages + tuple([image])
-        nodegraphutils.saveBackgroundImages(hou.node(pinNodePath).parent(), allImages)
+        nodegraphutils.saveBackgroundImages(hou.item(pinNodePath).parent(), allImages)
     
     def clearNetworkImages(self):
         """

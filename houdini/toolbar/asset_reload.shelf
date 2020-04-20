@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<shelfDocument>
+  <!-- This file contains definitions of shelves, toolbars, and tools.
+ It should not be hand-edited when it is being used by the application.
+ Note, that two definitions of the same element are not allowed in
+ a single file. -->
+
+  <tool name="asset_reload" label="Reload Mega Assets" icon="PLASMA_App">
+    <script scriptType="python"><![CDATA[import megaH
+mega = megaH.MegaInit()
+
+megaLoadType = hou.nodeType(hou.sopNodeTypeCategory(), mega.megaLoad)
+allMegaLoadNodes = megaLoadType.instances() # gets all megaLoad nodes in project
+megaTexType = hou.nodeType(hou.vopNodeTypeCategory(), mega.megaTex)
+allMegaTexNodes = megaTexType.instances() # gets all megaTex nodes in project
+
+for megaNode in allMegaLoadNodes:
+    megaNode.parm('reload').pressButton()
+
+for megaNode in allMegaTexNodes:
+    megaNode.parm('reload').pressButton()]]></script>
+  </tool>
+</shelfDocument>

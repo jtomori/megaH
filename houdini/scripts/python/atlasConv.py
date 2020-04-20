@@ -226,9 +226,11 @@ def genAssets(rootNode, nestedInstancesEnable, singleAssetSavePath, multiAssetCo
         newNodes.append(mainAttribdeleteNode)
 
         # create main multi asset write file node
-        mainWriteMultiAssetNode = mainAttribdeleteNode.createOutputNode('file')
+        mainWriteMultiAssetNode = mainAttribdeleteNode.createOutputNode('filecache')
         mainWriteMultiAssetNode.setName('write_multi_asset_' + str(i + 1))
-        mainWriteMultiAssetNode.parm('filemode').set(2)
+        # mainWriteMultiAssetNode.parm('filemode').set(2)
+        mainWriteMultiAssetNode.parm('loadfromdisk').set(1)
+        mainWriteMultiAssetNode.parm('trange').set(0)
         mainWriteMultiAssetNode.parm('file').set(multiAssetSavePath + '_' + str(i + 1) + '_High.bgeo.sc')
         newNodes.append(mainWriteMultiAssetNode)
 
@@ -272,9 +274,11 @@ def genAssets(rootNode, nestedInstancesEnable, singleAssetSavePath, multiAssetCo
         newNodes.append(reducedAttribdeleteNode)
 
         # create reduced multi asset write file node
-        reducedWriteMultiAssetNode = reducedAttribdeleteNode.createOutputNode('file')
+        reducedWriteMultiAssetNode = reducedAttribdeleteNode.createOutputNode('filecache')
         reducedWriteMultiAssetNode.setName('write_multi_asset_reduced_' + str(i + 1))
-        reducedWriteMultiAssetNode.parm('filemode').set(2)
+        # reducedWriteMultiAssetNode.parm('filemode').set(2)
+        reducedWriteMultiAssetNode.parm('loadfromdisk').set(1)
+        reducedWriteMultiAssetNode.parm('trange').set(0)
         reducedWriteMultiAssetNode.parm('file').set(multiAssetSavePath + '_' + str(i + 1) + '_LOD0.bgeo.sc')
         newNodes.append(reducedWriteMultiAssetNode)
 
@@ -318,9 +322,11 @@ def genAssets(rootNode, nestedInstancesEnable, singleAssetSavePath, multiAssetCo
         newNodes.append(proxyAttribdeleteNode)
 
         # create proxy multi asset write file node
-        proxyWriteMultiAssetNode = proxyAttribdeleteNode.createOutputNode('file')
+        proxyWriteMultiAssetNode = proxyAttribdeleteNode.createOutputNode('filecache')
         proxyWriteMultiAssetNode.setName('write_multi_asset_proxy_' + str(i + 1))
-        proxyWriteMultiAssetNode.parm('filemode').set(2)
+        # proxyWriteMultiAssetNode.parm('filemode').set(2)
+        proxyWriteMultiAssetNode.parm('loadfromdisk').set(1)
+        proxyWriteMultiAssetNode.parm('trange').set(0)
         proxyWriteMultiAssetNode.parm('file').set(multiAssetSavePath + '_' + str(i + 1) + '_LOD1.bgeo.sc')
         newNodes.append(proxyWriteMultiAssetNode)
 

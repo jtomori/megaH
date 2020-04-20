@@ -343,10 +343,13 @@ class BuildAssetsHierarchy(MegaInit):
 		
 		# reload mega load hda module
 		megaLoadType = hou.nodeType(hou.sopNodeTypeCategory(), self.megaLoad)
-		megaLoadType.hdaModule()._HDAModule__reload()
+		hou.hda.reloadHDAModule(megaLoadType.hdaModule())
+		# megaLoadType.hdaModule()._HDAModule__reload()
+
 		# reload mega textures hda module
 		megaTexType = hou.nodeType(hou.vopNodeTypeCategory(), self.megaTex)
-		megaTexType.hdaModule()._HDAModule__reload()
+		hou.hda.reloadHDAModule(megaTexType.hdaModule())		
+		# megaTexType.hdaModule()._HDAModule__reload()
 
 		end = time.time()
 		hou.ui.displayMessage("Assets indexing done in: %0.4f seconds" % (end-start), title="Done")
